@@ -8,7 +8,21 @@
 
 /* Begin PBXBuildFile section */
 		AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A94F522B4563E00662FAD /* faceDAT.cpp */; };
+		AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = E227270F21B6EE9A00905532 /* faceDAT.plugin */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AF5A950122B45A5D00662FAD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = $PROJECT_DIR/plugins;
+			dstSubfolderSpec = 0;
+			files = (
+				AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		AF5A94F222B4562F00662FAD /* CPlusPlus_Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CPlusPlus_Common.h; path = src/common/CPlusPlus_Common.h; sourceTree = "<group>"; };
@@ -122,6 +136,7 @@
 				E227270B21B6EE9A00905532 /* Sources */,
 				E227270C21B6EE9A00905532 /* Frameworks */,
 				E227270D21B6EE9A00905532 /* Resources */,
+				AF5A950122B45A5D00662FAD /* CopyFiles */,
 			);
 			buildRules = (
 			);

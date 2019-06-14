@@ -39,3 +39,7 @@ DerivedData/
 !*.xcodeproj/xcshareddata/
 !*.xcworkspace/contents.xcworkspacedata
 /*.gcno
+
+## TouchDesigner
+*.[0-9]*.toe
+plugins/
