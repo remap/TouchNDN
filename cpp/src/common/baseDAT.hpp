@@ -18,4 +18,20 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
-#include <gl/gl.h>
+#ifndef baseDAT_hpp
+#define baseDAT_hpp
+
+#include "DAT_CPlusPlusBase.h"
+#include <stdio.h>
+
+namespace touch_ndn {
+
+    class BaseDAT : public DAT_CPlusPlusBase {
+    public:
+        
+    private:
+        
+    };
+}
+
+#endif /* baseDAT_hpp */

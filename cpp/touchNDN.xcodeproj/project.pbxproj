@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A94F522B4563E00662FAD /* faceDAT.cpp */; };
 		AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = E227270F21B6EE9A00905532 /* faceDAT.plugin */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		AF5A950E22B461C600662FAD /* libndn-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950C22B461C600662FAD /* libndn-cpp.a */; };
+		AF5A951122B4621000662FAD /* baseDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A950F22B4621000662FAD /* baseDAT.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -36,6 +38,10 @@
 		AF5A94FC22B4565000662FAD /* namespaceDAT.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = namespaceDAT.h; path = src/namespaceDAT/namespaceDAT.h; sourceTree = "<group>"; };
 		AF5A94FE22B4566300662FAD /* contentCacheDAT.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = contentCacheDAT.h; path = src/contentCacheDAT/contentCacheDAT.h; sourceTree = "<group>"; };
 		AF5A94FF22B4566300662FAD /* contentCacheDAT.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = contentCacheDAT.cpp; path = src/contentCacheDAT/contentCacheDAT.cpp; sourceTree = "<group>"; };
+		AF5A950B22B461C600662FAD /* libcnl-cpp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libcnl-cpp.a"; path = "../../deps/build/lib/libcnl-cpp.a"; sourceTree = "<group>"; };
+		AF5A950C22B461C600662FAD /* libndn-cpp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libndn-cpp.a"; path = "../../deps/build/lib/libndn-cpp.a"; sourceTree = "<group>"; };
+		AF5A950F22B4621000662FAD /* baseDAT.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = baseDAT.cpp; path = src/common/baseDAT.cpp; sourceTree = "<group>"; };
+		AF5A951022B4621000662FAD /* baseDAT.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = baseDAT.hpp; path = src/common/baseDAT.hpp; sourceTree = "<group>"; };
 		E227270F21B6EE9A00905532 /* faceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = faceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		E227271221B6EE9A00905532 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -45,6 +51,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF5A950E22B461C600662FAD /* libndn-cpp.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -57,6 +64,8 @@
 				AF5A94F222B4562F00662FAD /* CPlusPlus_Common.h */,
 				AF5A94F422B4562F00662FAD /* DAT_CPlusPlusBase.h */,
 				AF5A94F322B4562F00662FAD /* GL_Extensions.h */,
+				AF5A950F22B4621000662FAD /* baseDAT.cpp */,
+				AF5A951022B4621000662FAD /* baseDAT.hpp */,
 			);
 			name = common;
 			sourceTree = "<group>";
@@ -97,11 +106,29 @@
 			name = contentCacheDAT;
 			sourceTree = "<group>";
 		};
+		AF5A950A22B461B200662FAD /* deps */ = {
+			isa = PBXGroup;
+			children = (
+				AF5A950B22B461C600662FAD /* libcnl-cpp.a */,
+				AF5A950C22B461C600662FAD /* libndn-cpp.a */,
+			);
+			name = deps;
+			sourceTree = "<group>";
+		};
+		AF5A951222B46D3100662FAD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		E227270621B6EE9A00905532 = {
 			isa = PBXGroup;
 			children = (
+				AF5A950A22B461B200662FAD /* deps */,
 				E227271121B6EE9A00905532 /* touchNDN */,
 				E227271021B6EE9A00905532 /* Products */,
+				AF5A951222B46D3100662FAD /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -193,6 +220,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF5A951122B4621000662FAD /* baseDAT.cpp in Sources */,
 				AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -258,8 +286,8 @@
 					$LIBNDNCPP_INSTALL_DIR/include,
 					/usr/local/include,
 				);
-				LIBCNLCPP_INSTALL_DIR = "";
-				LIBNDNCPP_INSTALL_DIR = "";
+				LIBCNLCPP_INSTALL_DIR = $PROJECT_DIR/../../deps/build;
+				LIBNDNCPP_INSTALL_DIR = $PROJECT_DIR/../../deps/build;
 				LIBNDNRTC_INSTALL_DIR = "";
 				LIBRARY_SEARCH_PATHS = (
 					$LIBNDNRTC_INSTALL_DIR/lib,
@@ -327,8 +355,8 @@
 					$LIBNDNCPP_INSTALL_DIR/include,
 					/usr/local/include,
 				);
-				LIBCNLCPP_INSTALL_DIR = "";
-				LIBNDNCPP_INSTALL_DIR = "";
+				LIBCNLCPP_INSTALL_DIR = $PROJECT_DIR/../../deps/build;
+				LIBNDNCPP_INSTALL_DIR = $PROJECT_DIR/../../deps/build;
 				LIBNDNRTC_INSTALL_DIR = "";
 				LIBRARY_SEARCH_PATHS = (
 					$LIBNDNRTC_INSTALL_DIR/lib,
