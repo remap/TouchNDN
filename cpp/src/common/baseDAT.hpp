@@ -21,15 +21,33 @@
 #ifndef baseDAT_hpp
 #define baseDAT_hpp
 
-#include "DAT_CPlusPlusBase.h"
 #include <stdio.h>
+#include <queue>
+
+#include "baseOP.hpp"
+#include "DAT_CPlusPlusBase.h"
 
 namespace touch_ndn {
-
-    class BaseDAT : public DAT_CPlusPlusBase {
+    
+    class BaseDAT : public BaseOp<DAT_CPlusPlusBase> {
     public:
+        BaseDAT(const OP_NodeInfo* info);
+        ~BaseDAT();
         
-    private:
+        virtual void getGeneralInfo(DAT_GeneralInfo* ginfo,
+                                    const OP_Inputs* inputs,
+                                    void* reserved1) override;
+        virtual void execute(DAT_Output*,
+                             const OP_Inputs*,
+                             void* reserved1) override;
+        
+    protected:
+        // FIFO Queue of callbbacks that will be called from within execute() method.
+        // Queue will be executed until empty.
+        // Callbacks should follow certain signature
+        typedef std::function<void(DAT_Output*, const OP_Inputs*)> ExecuteCallback;
+        std::queue<ExecuteCallback> executeQueue_;
+        
         
     };
 }

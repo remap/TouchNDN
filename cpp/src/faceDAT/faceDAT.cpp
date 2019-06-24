@@ -46,7 +46,6 @@ FillDATPluginInfo(DAT_PluginInfo *info)
 	info->customOPInfo.authorEmail->setString("peter@remap.ucla.edu");
 	info->customOPInfo.minInputs = 0;
 	info->customOPInfo.maxInputs = 1;
-
 }
 
 DLLEXPORT
@@ -65,7 +64,7 @@ DestroyDATInstance(DAT_CPlusPlusBase* instance)
 
 };
 
-FaceDAT::FaceDAT(const OP_NodeInfo* info) : myNodeInfo(info)
+FaceDAT::FaceDAT(const OP_NodeInfo* info) : BaseDAT(info)
 {
 	myExecuteCount = 0;
 	myOffset = 0.0;
@@ -411,3 +410,4 @@ FaceDAT::pulsePressed(const char* name, void* reserved1)
 		myOffset = 0.0;
 	}
 }
+

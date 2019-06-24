@@ -18,5 +18,67 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
+#include <stdio.h>
+#include <string>
+
 #include "baseDAT.hpp"
 
+using namespace std;
+using namespace touch_ndn;
+
+BaseDAT::BaseDAT(const OP_NodeInfo* info)
+: BaseOp(info)
+{
+}
+
+BaseDAT::~BaseDAT()
+{
+    
+}
+
+void
+BaseDAT::getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1)
+{
+    ginfo->cookEveryFrame = false;
+    ginfo->cookEveryFrameIfAsked = true;
+}
+
+void
+BaseDAT::execute(DAT_Output *output, const OP_Inputs *inputs, void *reserved1)
+{
+    try {
+        while (executeQueue_.size())
+        {
+            ExecuteCallback clbck = executeQueue_.front();
+            executeQueue_.pop();
+            clbck(output, inputs);
+        }
+    } catch (exception& e) {
+        errorString_ = e.what();
+    }
+}
+
+//int32_t
+//BaseDAT::getNumInfoCHOPChans(void *reserved1)
+//{
+//    return BaseOp::getNumInfoCHOPChans(reserved1);
+//}
+//
+//void
+//BaseDAT::getInfoCHOPChan(int32_t index,
+//                        OP_InfoCHOPChan *chan,
+//                        void* reserved1)
+//{
+//}
+//
+//bool
+//BaseDAT::getInfoDATSize(OP_InfoDATSize *infoSize, void *reserved1)
+//{
+//    return false;
+//}
+//
+//void
+//BaseDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries *entries, void *reserved1)
+//{
+//    
+//}

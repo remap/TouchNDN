@@ -11,6 +11,9 @@
 		AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = E227270F21B6EE9A00905532 /* faceDAT.plugin */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		AF5A950E22B461C600662FAD /* libndn-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950C22B461C600662FAD /* libndn-cpp.a */; };
 		AF5A951122B4621000662FAD /* baseDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A950F22B4621000662FAD /* baseDAT.cpp */; };
+		AF5A951B22B4758400662FAD /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
+		AF5A951C22B4788E00662FAD /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
+		AF5A951F22B4A1F400662FAD /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -42,6 +45,11 @@
 		AF5A950C22B461C600662FAD /* libndn-cpp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libndn-cpp.a"; path = "../../deps/build/lib/libndn-cpp.a"; sourceTree = "<group>"; };
 		AF5A950F22B4621000662FAD /* baseDAT.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = baseDAT.cpp; path = src/common/baseDAT.cpp; sourceTree = "<group>"; };
 		AF5A951022B4621000662FAD /* baseDAT.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = baseDAT.hpp; path = src/common/baseDAT.hpp; sourceTree = "<group>"; };
+		AF5A951422B46F8200662FAD /* face-processor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "face-processor.cpp"; path = "src/faceDAT/face-processor.cpp"; sourceTree = "<group>"; };
+		AF5A951522B46F8200662FAD /* face-processor.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = "face-processor.hpp"; path = "src/faceDAT/face-processor.hpp"; sourceTree = "<group>"; };
+		AF5A951922B4755C00662FAD /* libboost_system.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libboost_system.a; path = ../../../../../../../usr/local/lib/libboost_system.a; sourceTree = "<group>"; };
+		AF5A951D22B4A1F400662FAD /* baseOP.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = baseOP.cpp; path = src/common/baseOP.cpp; sourceTree = "<group>"; };
+		AF5A951E22B4A1F400662FAD /* baseOP.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = baseOP.hpp; path = src/common/baseOP.hpp; sourceTree = "<group>"; };
 		E227270F21B6EE9A00905532 /* faceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = faceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		E227271221B6EE9A00905532 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -52,6 +60,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AF5A950E22B461C600662FAD /* libndn-cpp.a in Frameworks */,
+				AF5A951C22B4788E00662FAD /* libboost_system.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,6 +75,8 @@
 				AF5A94F322B4562F00662FAD /* GL_Extensions.h */,
 				AF5A950F22B4621000662FAD /* baseDAT.cpp */,
 				AF5A951022B4621000662FAD /* baseDAT.hpp */,
+				AF5A951D22B4A1F400662FAD /* baseOP.cpp */,
+				AF5A951E22B4A1F400662FAD /* baseOP.hpp */,
 			);
 			name = common;
 			sourceTree = "<group>";
@@ -73,6 +84,8 @@
 		AF5A94DD22B4438300662FAD /* faceDAT */ = {
 			isa = PBXGroup;
 			children = (
+				AF5A951422B46F8200662FAD /* face-processor.cpp */,
+				AF5A951522B46F8200662FAD /* face-processor.hpp */,
 				AF5A94F522B4563E00662FAD /* faceDAT.cpp */,
 				AF5A94F622B4563E00662FAD /* faceDAT.h */,
 			);
@@ -109,6 +122,7 @@
 		AF5A950A22B461B200662FAD /* deps */ = {
 			isa = PBXGroup;
 			children = (
+				AF5A951922B4755C00662FAD /* libboost_system.a */,
 				AF5A950B22B461C600662FAD /* libcnl-cpp.a */,
 				AF5A950C22B461C600662FAD /* libndn-cpp.a */,
 			);
@@ -221,6 +235,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				AF5A951122B4621000662FAD /* baseDAT.cpp in Sources */,
+				AF5A951F22B4A1F400662FAD /* baseOP.cpp in Sources */,
+				AF5A951B22B4758400662FAD /* face-processor.cpp in Sources */,
 				AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
