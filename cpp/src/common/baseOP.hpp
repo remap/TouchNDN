@@ -23,22 +23,30 @@
 
 #include <stdio.h>
 #include <string>
+#include <queue>
 
 #include "CPlusPlus_Common.h"
 
 namespace touch_ndn {
     
-    template<class OP_Base>
-    class BaseOp : public OP_Base {
+    /**
+     * BaseOp is a template class that implements helper functions, common
+     * for all TouchDesigner operators (for example, set/get error/warning
+     * strings, callback execute queue, etc).
+     * It derives from a TouchDesigner's OP class passed as a template
+     * parameter.
+     */
+    template<class OP_Base, class... Arg>
+    class BaseOpImpl : public OP_Base {
     public:
-        BaseOp(const OP_NodeInfo* info)
+        BaseOpImpl(const OP_NodeInfo* info)
         : nodeInfo_(info)
         , opName_(extractOpName(info->opPath))
         , errorString_("")
         , warningString_("")
         , executeCount_(0) {}
         
-        ~BaseOp(){}
+        BaseOpImpl(){}
         
         virtual void getWarningString(OP_String *warning, void* reserved1) override
         {
@@ -70,7 +78,7 @@ namespace touch_ndn {
                 } break;
                 case 1: {
                     chan->name->setString("executeQueue");
-                    chan->value = (float)0;
+                    chan->value = (float)executeQueue_.size();
                 } break;
                 default: break;
             }
@@ -88,11 +96,30 @@ namespace touch_ndn {
             
         }
         
+        typedef std::function<void(Arg...)> ExecuteCallback;
+        
+        virtual void execute(Arg... arg) override
+        {
+            executeCount_++;
+            // run execute callback queue
+            try {
+                while (executeQueue_.size())
+                {
+                    ExecuteCallback c = executeQueue_.front();
+                    executeQueue_.pop();
+                    c(std::forward<Arg>(arg)...);
+                }
+            } catch (std::runtime_error &e) {
+                setWarning("Error in ExecuteCallback: %s", e.what());
+            }
+        }
+        
     protected:
         const OP_NodeInfo *nodeInfo_;
         int64_t executeCount_;
         std::string opName_;
         std::string errorString_, warningString_;
+        std::queue<ExecuteCallback> executeQueue_;
         
         std::string extractOpName(std::string opPath) const
         {
@@ -105,12 +132,45 @@ namespace touch_ndn {
             return opPath.substr(last);
         }
         
-        void setString(std::string &string, const char *format, ...)
+        void setError(const char *format, ...)
         {
-            // TBD
+            va_list args;
+            va_start(args, format);
+            setString(errorString_, args);
+            va_end(args);
+        }
+        
+        void setWarning(const char *format, ...)
+        {
+            va_list args;
+            va_start(args, format);
+            setString(warningString_, args);
+            va_end(args);
+        }
+        
+        void setString(std::string &string, va_list args)
+        {
+            static char s[4096];
+            memset((void*)s, 0, 4096);
+            vprintf(s, args);
+            string = std::string(s);
         }
         
     };
+    
+    // for details, see
+    // https://stackoverflow.com/questions/56742171/how-to-overload-a-method-of-base-class-passed-as-a-parameter-to-a-template-class
+    template <class OP_Base, class ExecuteMethod = decltype(&OP_Base::execute)>
+    struct BaseOpSelector;
+    
+    template <class OP_Base, class... Arg>
+    struct BaseOpSelector<OP_Base, void (OP_Base::*)(Arg...)>
+    {
+        using type = BaseOpImpl<OP_Base, Arg...>;
+    };
+    
+    template <class OP_Base>
+    using BaseOp = typename BaseOpSelector<OP_Base>::type;
 }
 
 #endif /* baseOP_hpp */

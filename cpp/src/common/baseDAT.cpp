@@ -27,7 +27,7 @@ using namespace std;
 using namespace touch_ndn;
 
 BaseDAT::BaseDAT(const OP_NodeInfo* info)
-: BaseOp(info)
+: BaseOp<DAT_CPlusPlusBase>(info)
 {
 }
 
