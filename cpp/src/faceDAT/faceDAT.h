@@ -19,6 +19,7 @@
  */
 
 #include <string>
+#include <map>
 
 #include "DAT_CPlusPlusBase.h"
 #include "baseDAT.hpp"
@@ -34,14 +35,22 @@ namespace touch_ndn
     class FaceDAT : public BaseDAT
     {
     public:
+        enum class InfoChopIndex : int32_t {
+            FaceProcessing
+        };
+        enum class InfoDatIndex : int32_t {
+            // nothing
+        };
+        
+        static const std::map<InfoChopIndex, std::string> ChanNames;
+        static const std::map<InfoDatIndex, std::string> DatNames;
+        
         FaceDAT(const OP_NodeInfo* info);
         virtual ~FaceDAT();
         
         virtual void		getGeneralInfo(DAT_GeneralInfo*, const OP_Inputs*, void* reserved1) override;
         
-        virtual void		execute(DAT_Output*,
-                                    const OP_Inputs*,
-                                    void* reserved) override;
+        virtual void		execute(DAT_Output*, const OP_Inputs*, void* reserved) override;
         
         
         virtual int32_t		getNumInfoCHOPChans(void* reserved1) override;
@@ -56,32 +65,23 @@ namespace touch_ndn
                                               void* reserved1) override;
         
         virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
-        virtual void		pulsePressed(const char* name, void* reserved1) override;
+//        virtual void        pulsePressed(const char* name, void* reserved1) override;
         
     private:
         
-        void				makeTable(DAT_Output* output, int numRows, int numCols);
-        void				makeText(DAT_Output* output);
-        
-        // We don't need to store this pointer, but we do for the example.
-        // The OP_NodeInfo class store information about the node that's using
-        // this instance of the class (like its name).
         const OP_NodeInfo*	myNodeInfo;
         
-        // In this example this value will be incremented each time the execute()
-        // function is called, then passes back to the DAT
-        int32_t				myExecuteCount;
+        void initPulsed() override;
+        void initFace(DAT_Output*, const OP_Inputs*, void* reserved);
+        void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
+        void paramsUpdated(const std::set<std::string>&) override;
         
-        double				myOffset;
-        
-        std::string         myChopChanName;
-        float               myChopChanVal;
-        std::string         myChop;
-        
-        std::string         myDat;
+        void                makeTable(DAT_Output* output, int numRows, int numCols);
+        void                makeText(DAT_Output* output);
         
         
         //******************************************************************************
+        std::string nfdHost_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
       
       

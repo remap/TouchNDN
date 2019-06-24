@@ -39,7 +39,6 @@ namespace touch_ndn {
         
         class FaceProcessorImpl;
         
-        
         /**
          * FaceProcessor is a thread-safe wrapper around Face or ThreadsafeFace object.
          * Internally, it runs a separate processing thread (that calls processEvents).
@@ -91,7 +90,7 @@ namespace touch_ndn {
             static std::shared_ptr<FaceProcessor> forLocalhost();
             
             // Checks if NFD is running (tries to register prefix, blocking).
-            static bool checkNfdConnection();
+            static bool checkNfdConnection(std::string host = "localhost");
             
         private:
             std::shared_ptr<FaceProcessorImpl> pimpl_;

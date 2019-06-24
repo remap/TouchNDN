@@ -13,6 +13,7 @@
 #include <memory>
 #include <condition_variable>
 #include <atomic>
+#include <chrono>
 
 #include <boost/asio.hpp>
 #include <boost/asio/io_service.hpp>
@@ -70,10 +71,13 @@ FaceProcessor::forLocalhost()
 {
     return make_shared<FaceProcessor>("localhost");
 }
-bool FaceProcessor::checkNfdConnection()
+bool FaceProcessor::checkNfdConnection(string host)
 {
     bool done = false;
     uint64_t registeredPrefixId = 0;
+    auto t = chrono::steady_clock::now();
+    double timeout = (host == "localhost" ? 500 : 2000);
+    
 #if 0
     KeyChain keyChain;
 #else
@@ -86,7 +90,7 @@ bool FaceProcessor::checkNfdConnection()
     keyChain.createIdentityAndCertificate("connectivity-check");
     keyChain.getIdentityManager()->setDefaultIdentity("connectivity-check");
 #endif
-    Face face;
+    Face face(host.c_str());
     
     face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName());
     face.registerPrefix(ndn::Name("/nfd-connectivity-check"),
@@ -104,7 +108,14 @@ bool FaceProcessor::checkNfdConnection()
                             registeredPrefixId = prefId;
                             done = true;
                         });
-    while(!done) face.processEvents();
+
+    double d = 0;
+    do
+    {
+        face.processEvents();
+        d = (double)chrono::duration_cast<chrono::milliseconds>(chrono::steady_clock::now() - t).count();
+    } while (!done && d < timeout);
+    
     if (registeredPrefixId) face.removeRegisteredPrefix(registeredPrefixId);
     
     return (registeredPrefixId != 0);

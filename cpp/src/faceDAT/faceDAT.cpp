@@ -29,6 +29,14 @@
 
 #include <ndn-cpp/face.hpp>
 
+#include "face-processor.hpp"
+
+#define PAR_NFD_HOST "Nfdhost"
+#define PAR_NFD_HOST_LABEL "NFD Host"
+
+using namespace std;
+using namespace std::placeholders;
+using namespace ndn;
 using namespace touch_ndn;
 
 extern "C"
@@ -64,15 +72,18 @@ DestroyDATInstance(DAT_CPlusPlusBase* instance)
 
 };
 
-FaceDAT::FaceDAT(const OP_NodeInfo* info) : BaseDAT(info)
+//******************************************************************************
+// InfoDAT and InfoCHOP labels and indexes
+const map<FaceDAT::InfoChopIndex, string> FaceDAT::ChanNames = {
+    { FaceDAT::InfoChopIndex::FaceProcessing, "faceProcessing" }
+};
+
+//******************************************************************************
+FaceDAT::FaceDAT(const OP_NodeInfo* info)
+: BaseDAT(info)
+, nfdHost_("localhost")
 {
-	myExecuteCount = 0;
-	myOffset = 0.0;
-
-	myChop = "";
-
-	myChopChanName = "";
-	myChopChanVal = 0;
+    dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
 }
 
 FaceDAT::~FaceDAT()
@@ -116,149 +127,139 @@ FaceDAT::makeText(DAT_Output* output)
 }
 
 void
-FaceDAT::execute(DAT_Output* output,
-							const OP_Inputs* inputs,
-							void* reserved)
+FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
 {
-	myExecuteCount++;
+    BaseDAT::execute(output, inputs, reserved);
 
-	if (!output)
-		return;
-
-	if (inputs->getNumInputs() > 0)
-	{
-		inputs->enablePar("Rows", 0);		// not used
-		inputs->enablePar("Cols", 0);		// not used
-		inputs->enablePar("Outputtype", 0);	// not used
-
-		const OP_DATInput	*cinput = inputs->getInputDAT(0);
-
-		int numRows = cinput->numRows;
-		int numCols = cinput->numCols;
-		bool isTable = cinput->isTable;
-
-		if (!isTable) // is Text
-		{
-			const char* str = cinput->getCell(0, 0);
-			output->setText(str);
-		}
-		else
-		{
-			output->setOutputDataType(DAT_OutDataType::Table);
-			output->setTableSize(numRows, numCols);
-
-			for (int i = 0; i < cinput->numRows; i++)
-			{
-				for (int j = 0; j < cinput->numCols; j++)
-				{
-					const char* str = cinput->getCell(i, j);
-					output->setCellString(i, j, str);
-				}
-			}
-		}
-
-	}
-	else // If no input is connected, lets output a custom table/text DAT
-	{
-		inputs->enablePar("Rows", 1);
-		inputs->enablePar("Cols", 1);
-		inputs->enablePar("Outputtype", 1);
-
-		int outputDataType = inputs->getParInt("Outputtype");
-		int	 numRows = inputs->getParInt("Rows");
-		int	 numCols = inputs->getParInt("Cols");
-
-		switch (outputDataType)
-		{
-			case 0:		// Table
-				makeTable(output, numRows, numCols);
-				break;
-
-			case 1:		// Text
-				makeText(output);
-				break;
-
-			default: // table
-				makeTable(output, numRows, numCols);
-				break;
-		}
-
-		// if there is an input chop parameter:
-		const OP_CHOPInput	*cinput = inputs->getParCHOP("Chop");
-		if (cinput)
-		{
-			int numSamples = cinput->numSamples;
-			int ind = 0;
-			for (int i = 0; i < cinput->numChannels; i++)
-			{
-				myChopChanName = std::string(cinput->getChannelName(i));
-				myChop = inputs->getParString("Chop");
-
-				static char tempBuffer[50];
-				myChopChanVal = float(cinput->getChannelData(i)[ind]);
-
-#ifdef _WIN32
-				sprintf_s(tempBuffer, "%g", myChopChanVal);
-#else // macOS
-				snprintf(tempBuffer, sizeof(tempBuffer), "%g", myChopChanVal);
-#endif
-				if (numCols == 0)
-					numCols = 2;
-				output->setTableSize(numRows + i + 1, numCols);
-				output->setCellString(numRows + i, 0, myChopChanName.c_str());
-				output->setCellString(numRows + i, 1, &tempBuffer[0]);
-			}
-
-		}
-
-	}
+//    if (!output)
+//        return;
+//
+//    if (inputs->getNumInputs() > 0)
+//    {
+//        inputs->enablePar("Rows", 0);        // not used
+//        inputs->enablePar("Cols", 0);        // not used
+//        inputs->enablePar("Outputtype", 0);    // not used
+//
+//        const OP_DATInput    *cinput = inputs->getInputDAT(0);
+//
+//        int numRows = cinput->numRows;
+//        int numCols = cinput->numCols;
+//        bool isTable = cinput->isTable;
+//
+//        if (!isTable) // is Text
+//        {
+//            const char* str = cinput->getCell(0, 0);
+//            output->setText(str);
+//        }
+//        else
+//        {
+//            output->setOutputDataType(DAT_OutDataType::Table);
+//            output->setTableSize(numRows, numCols);
+//
+//            for (int i = 0; i < cinput->numRows; i++)
+//            {
+//                for (int j = 0; j < cinput->numCols; j++)
+//                {
+//                    const char* str = cinput->getCell(i, j);
+//                    output->setCellString(i, j, str);
+//                }
+//            }
+//        }
+//
+//    }
+//    else // If no input is connected, lets output a custom table/text DAT
+//    {
+//        inputs->enablePar("Rows", 1);
+//        inputs->enablePar("Cols", 1);
+//        inputs->enablePar("Outputtype", 1);
+//
+//        int outputDataType = inputs->getParInt("Outputtype");
+//        int     numRows = inputs->getParInt("Rows");
+//        int     numCols = inputs->getParInt("Cols");
+//
+//        switch (outputDataType)
+//        {
+//            case 0:        // Table
+//                makeTable(output, numRows, numCols);
+//                break;
+//
+//            case 1:        // Text
+//                makeText(output);
+//                break;
+//
+//            default: // table
+//                makeTable(output, numRows, numCols);
+//                break;
+//        }
+//
+//        // if there is an input chop parameter:
+//        const OP_CHOPInput    *cinput = inputs->getParCHOP("Chop");
+//        if (cinput)
+//        {
+//            int numSamples = cinput->numSamples;
+//            int ind = 0;
+//            for (int i = 0; i < cinput->numChannels; i++)
+//            {
+//                myChopChanName = std::string(cinput->getChannelName(i));
+//                myChop = inputs->getParString("Chop");
+//
+//                static char tempBuffer[50];
+//                myChopChanVal = float(cinput->getChannelData(i)[ind]);
+//
+//#ifdef _WIN32
+//                sprintf_s(tempBuffer, "%g", myChopChanVal);
+//#else // macOS
+//                snprintf(tempBuffer, sizeof(tempBuffer), "%g", myChopChanVal);
+//#endif
+//                if (numCols == 0)
+//                    numCols = 2;
+//                output->setTableSize(numRows + i + 1, numCols);
+//                output->setCellString(numRows + i, 0, myChopChanName.c_str());
+//                output->setCellString(numRows + i, 1, &tempBuffer[0]);
+//            }
+//
+//        }
+//
+//    }
 }
 
 int32_t
 FaceDAT::getNumInfoCHOPChans(void* reserved1)
 {
-	// We return the number of channel we want to output to any Info CHOP
-	// connected to the CHOP. In this example we are just going to send one channel.
-	return 4;
+    return BaseDAT::getNumInfoCHOPChans(reserved1) + (int32_t) ChanNames.size();
 }
 
 void
-FaceDAT::getInfoCHOPChan(int32_t index,
-									OP_InfoCHOPChan* chan, void* reserved1)
+FaceDAT::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
 {
-	// This function will be called once for each channel we said we'd want to return
-	// In this example it'll only be called once.
-
-	if (index == 0)
-	{
-		chan->name->setString("executeCount");
-		chan->value = (float)myExecuteCount;
-	}
-
-	if (index == 1)
-	{
-		chan->name->setString("offset");
-		chan->value = (float)myOffset;
-	}
-
-	if (index == 2)
-	{
-		chan->name->setString(myChop.c_str());
-		chan->value = (float)myOffset;
-	}
-
-	if (index == 3)
-	{
-		chan->name->setString(myChopChanName.c_str());
-		chan->value = myChopChanVal;
-	}
+    FaceDAT::InfoChopIndex idx = (FaceDAT::InfoChopIndex)index;
+    
+    if (index < ChanNames.size())
+    {
+        switch (idx) {
+            case FaceDAT::InfoChopIndex::FaceProcessing:
+            {
+                bool faceProc = faceProcessor_ && faceProcessor_->isProcessing();
+                chan->value = (faceProcessor_ && faceProc ? 1. : 0.);
+                chan->name->setString(ChanNames.at(idx).c_str());
+            }
+                break;
+                
+            default:
+                break;
+        }
+    }
+    else
+        BaseDAT::getInfoCHOPChan(index - (int32_t)ChanNames.size(), chan, reserved1);
 }
 
 bool
 FaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
-	infoSize->rows = 3;
-	infoSize->cols = 3;
+    BaseDAT::getInfoDATSize(infoSize, reserved1);
+    
+	infoSize->rows += 0;
+	infoSize->cols += 0;
 	// Setting this to false means we'll be assigning values to the table
 	// one row at a time. True means we'll do it one column at a time.
 	infoSize->byColumn = false;
@@ -271,143 +272,74 @@ FaceDAT::getInfoDATEntries(int32_t index,
 									OP_InfoDATEntries* entries,
 									void* reserved1)
 {
-	char tempBuffer[4096];
-
-	if (index == 0)
-	{
-		// Set the value for the first column
-#ifdef _WIN32
-		strcpy_s(tempBuffer, "executeCount");
-#else // macOS
-		strlcpy(tempBuffer, "executeCount", sizeof(tempBuffer));
-#endif
-		entries->values[0]->setString(tempBuffer);
-
-		// Set the value for the second column
-#ifdef _WIN32
-		sprintf_s(tempBuffer, "%d", myExecuteCount);
-#else // macOS
-		snprintf(tempBuffer, sizeof(tempBuffer), "%d", myExecuteCount);
-#endif
-		entries->values[1]->setString(tempBuffer);
-	}
-
-	if (index == 1)
-	{
-		// Set the value for the first column
-#ifdef _WIN32
-		strcpy_s(tempBuffer, "offset");
-#else // macOS
-		strlcpy(tempBuffer, "offset", sizeof(tempBuffer));
-#endif
-		entries->values[0]->setString(tempBuffer);
-
-		// Set the value for the second column
-#ifdef _WIN32
-		sprintf_s(tempBuffer, "%g", myOffset);
-#else // macOS
-		snprintf(tempBuffer, sizeof(tempBuffer), "%g", myOffset);
-#endif
-		entries->values[1]->setString(tempBuffer);
-	}
-
-	if (index == 2)
-	{
-		// Set the value for the first column
-#ifdef _WIN32
-		strcpy_s(tempBuffer, "DAT input name");
-#else // macOS
-		strlcpy(tempBuffer, "offset", sizeof(tempBuffer));
-#endif
-		entries->values[0]->setString(tempBuffer);
-
-		// Set the value for the second column
-#ifdef _WIN32
-		strcpy_s(tempBuffer, myDat.c_str());
-#else // macOS
-		snprintf(tempBuffer, sizeof(tempBuffer), "%g", myOffset);
-#endif
-		entries->values[1]->setString(tempBuffer);
-	}
+    BaseDAT::getInfoDATEntries(index, nEntries, entries, reserved1);
 }
 
 void
 FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
-	// CHOP
+    BaseDAT::setupParameters(manager, reserved1);
+    
 	{
-		OP_StringParameter	np;
+		OP_StringParameter	np(PAR_NFD_HOST);
 
-		np.name = "Chop";
-		np.label = "CHOP";
+		np.label = PAR_NFD_HOST_LABEL;
+        np.defaultValue = nfdHost_.c_str();
+        np.page = PAR_PAGE_DEFAULT;
 
-		OP_ParAppendResult res = manager->appendCHOP(np);
+		OP_ParAppendResult res = manager->appendString(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
-
-	// Number of Rows
-	{
-		OP_NumericParameter	np;
-
-		np.name = "Rows";
-		np.label = "Rows";
-		np.defaultValues[0] = 4;
-		np.minSliders[0] = 0;
-		np.maxSliders[0] = 10;
-
-		OP_ParAppendResult res = manager->appendInt(np);
-		assert(res == OP_ParAppendResult::Success);
-	}
-
-	// Number of Columns
-	{
-		OP_NumericParameter	np;
-
-		np.name = "Cols";
-		np.label = "Cols";
-		np.defaultValues[0] = 5;
-		np.minSliders[0] = 0;
-		np.maxSliders[0] = 10;
-
-		OP_ParAppendResult res = manager->appendInt(np);
-		assert(res == OP_ParAppendResult::Success);
-	}
-
-	// DAT output type
-	{
-		OP_StringParameter	sp;
-
-		sp.name = "Outputtype";
-		sp.label = "Output Type";
-
-		sp.defaultValue = "Table";
-
-		const char *names[] = {"Table", "Text"};
-		const char *labels[] = {"Table", "Text"};
-
-		OP_ParAppendResult res = manager->appendMenu(sp, 2, names, labels);
-		assert(res == OP_ParAppendResult::Success);
-	}
-
-	// pulse
-	{
-		OP_NumericParameter	np;
-
-		np.name = "Reset";
-		np.label = "Reset";
-
-		OP_ParAppendResult res = manager->appendPulse(np);
-		assert(res == OP_ParAppendResult::Success);
-	}
-
 }
 
 void
-FaceDAT::pulsePressed(const char* name, void* reserved1)
+FaceDAT::initPulsed()
 {
-	if (!strcmp(name, "Reset"))
-	{
-		myOffset = 0.0;
-	}
+    dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
 }
+
+void
+FaceDAT::initFace(DAT_Output*, const OP_Inputs* inputs, void* reserved)
+{
+    faceProcessor_.reset();
+    
+    try
+    {
+        std::string hostname(inputs->getParString(PAR_NFD_HOST));
+        if (helpers::FaceProcessor::checkNfdConnection(hostname))
+        {
+            clearError();
+            faceProcessor_ = make_shared<helpers::FaceProcessor>(hostname);
+            faceProcessor_->start();
+        }
+        else
+            setError("Can't connect to NFD");
+    }
+    catch (std::runtime_error &e)
+    {
+        setError("Can't connect to NFD");
+    }
+}
+
+void
+FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inputs,
+                     void *reserved)
+{
+    
+    if (nfdHost_ != string(inputs->getParString(PAR_NFD_HOST)))
+    {
+        paramNames.insert(PAR_NFD_HOST);
+        nfdHost_ = string(inputs->getParString(PAR_NFD_HOST));
+    }
+}
+
+void
+FaceDAT::paramsUpdated(const std::set<std::string> &updatedParams)
+{
+    if (updatedParams.find(PAR_NFD_HOST) != updatedParams.end())
+    {
+        dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
+    }
+}
+
 

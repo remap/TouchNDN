@@ -24,8 +24,13 @@
 #include <stdio.h>
 #include <string>
 #include <queue>
+#include <set>
 
 #include "CPlusPlus_Common.h"
+
+#define PAR_PAGE_DEFAULT "Custom"
+#define PAR_INIT "Init"
+#define PAR_INIT_LABEL "Init"
 
 namespace touch_ndn {
     
@@ -44,9 +49,16 @@ namespace touch_ndn {
         , opName_(extractOpName(info->opPath))
         , errorString_("")
         , warningString_("")
+        , infoString_("")
         , executeCount_(0) {}
         
         BaseOpImpl(){}
+        
+        virtual void getInfoPopupString(OP_String *info, void* reserved1) override
+        {
+            if (infoString_.size())
+                info->setString(infoString_.c_str());
+        }
         
         virtual void getWarningString(OP_String *warning, void* reserved1) override
         {
@@ -86,21 +98,24 @@ namespace touch_ndn {
         
         virtual bool
         getInfoDATSize(OP_InfoDATSize *infoSize, void *reserved1) override
-        {
-            return false;
-        }
+        { return false; }
         
         virtual void
-        getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries *entries, void *reserved1) override
-        {
-            
-        }
+        getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries *entries,
+                          void *reserved1) override {}
         
         typedef std::function<void(Arg...)> ExecuteCallback;
         
         virtual void execute(Arg... arg) override
         {
             executeCount_++;
+            clearWarning();
+            
+            std::set<std::string> updatedParams;
+            
+            checkInputs(updatedParams, std::forward<Arg>(arg)...);
+            if (updatedParams.size()) paramsUpdated(updatedParams);
+            
             // run execute callback queue
             try {
                 while (executeQueue_.size())
@@ -110,7 +125,28 @@ namespace touch_ndn {
                     c(std::forward<Arg>(arg)...);
                 }
             } catch (std::runtime_error &e) {
-                setWarning("Error in ExecuteCallback: %s", e.what());
+                setWarning("Caught exception: %s", e.what());
+            }
+        }
+        
+        virtual void setupParameters(OP_ParameterManager* manager, void* reserved1) override
+        {
+            {
+                OP_NumericParameter np(PAR_INIT);
+                
+                np.label = PAR_INIT_LABEL;
+                np.page = PAR_PAGE_DEFAULT;
+                
+                OP_ParAppendResult res = manager->appendPulse(np);
+                assert(res == OP_ParAppendResult::Success);
+            }
+        }
+        
+        virtual void pulsePressed(const char* name, void* reserved1) override
+        {
+            if (strcmp(name, PAR_INIT) == 0)
+            {
+                initPulsed();
             }
         }
         
@@ -118,8 +154,28 @@ namespace touch_ndn {
         const OP_NodeInfo *nodeInfo_;
         int64_t executeCount_;
         std::string opName_;
-        std::string errorString_, warningString_;
+        std::string errorString_, warningString_, infoString_;
+        // FIFO Queue of callbbacks that will be called from within execute() method.
+        // Queue will be executed until empty.
+        // Callbacks should follow certain signature
         std::queue<ExecuteCallback> executeQueue_;
+        
+        void dispatchOnExecute(ExecuteCallback clbck)
+        {
+            executeQueue_.push(clbck);
+        }
+        
+        // override in subclasses
+        virtual void initPulsed() {}
+        // override in subclasses. should add udpated params names into the set
+        virtual void checkInputs(std::set<std::string> &updatedParams, Arg... arg) {
+            throw std::runtime_error("Not implemented");
+        }
+        // override in subclasses
+        // @param updatedParams Set of names of the updated parameters
+        virtual void paramsUpdated(const std::set<std::string> &updatedParams) {
+            throw std::runtime_error("Not implemented");
+        }
         
         std::string extractOpName(std::string opPath) const
         {
@@ -132,27 +188,38 @@ namespace touch_ndn {
             return opPath.substr(last);
         }
         
+        void clearError() { setError(""); }
         void setError(const char *format, ...)
         {
             va_list args;
             va_start(args, format);
-            setString(errorString_, args);
+            setString(errorString_, format, args);
             va_end(args);
         }
         
+        void clearWarning() { setWarning(""); }
         void setWarning(const char *format, ...)
         {
             va_list args;
             va_start(args, format);
-            setString(warningString_, args);
+            setString(warningString_, format, args);
             va_end(args);
         }
         
-        void setString(std::string &string, va_list args)
+        void setInfo(const char *format, ...)
+        {
+            va_list args;
+            va_start(args, format);
+            setString(infoString_, format, args);
+            va_end(args);
+        }
+        
+    private:
+        void setString(std::string &string, const char* format, va_list args)
         {
             static char s[4096];
             memset((void*)s, 0, 4096);
-            vprintf(s, args);
+            vsprintf(s, format, args);
             string = std::string(s);
         }
         
