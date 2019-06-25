@@ -45,7 +45,8 @@ namespace touch_ndn
     public:
         enum class InfoChopIndex : int32_t {
             FaceProcessing,
-            RequestsTableSize
+            RequestsTableSize,
+            ExpressedNum
         };
         enum class InfoDatIndex : int32_t {
             // nothing
@@ -91,6 +92,7 @@ namespace touch_ndn
         std::string nfdHost_;
         int32_t lifetime_;
         bool mustBeFresh_;
+        uint32_t nExpressed_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
         
         typedef struct _RequestStatus {

@@ -78,7 +78,8 @@ DestroyDATInstance(DAT_CPlusPlusBase* instance)
 // InfoDAT and InfoCHOP labels and indexes
 const map<FaceDAT::InfoChopIndex, string> FaceDAT::ChanNames = {
     { FaceDAT::InfoChopIndex::FaceProcessing, "faceProcessing" },
-    { FaceDAT::InfoChopIndex::RequestsTableSize, "requestsTableSize" }
+    { FaceDAT::InfoChopIndex::RequestsTableSize, "requestsTableSize" },
+    { FaceDAT::InfoChopIndex::ExpressedNum, "expressedNum" }
 };
 
 //******************************************************************************
@@ -251,6 +252,11 @@ FaceDAT::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
                 chan->value = requestsTable_->dict_.size();
             }
                 break;
+            case FaceDAT::InfoChopIndex::ExpressedNum:
+            {
+                chan->value = nExpressed_;
+            }
+                break;
             default:
             {
                 chan->value = 0;
@@ -394,8 +400,8 @@ void
 FaceDAT::express(shared_ptr<Interest> &i)
 {
     shared_ptr<RequestsTable> rt = requestsTable_;
+    nExpressed_++;
     faceProcessor_->dispatchSynchronized([i, rt](shared_ptr<Face> f){
-
         // NOTE: callbacks are called on Face thread!
         rt->cancelIfPending(*i, *f);
         uint64_t piId = f->expressInterest(*i,
