@@ -33,6 +33,8 @@
 
 #define PAR_NFD_HOST "Nfdhost"
 #define PAR_NFD_HOST_LABEL "NFD Host"
+#define PAR_EXPRESS "Express"
+#define PAR_EXPRESS_LABEL "Express"
 
 using namespace std;
 using namespace std::placeholders;
@@ -75,25 +77,30 @@ DestroyDATInstance(DAT_CPlusPlusBase* instance)
 //******************************************************************************
 // InfoDAT and InfoCHOP labels and indexes
 const map<FaceDAT::InfoChopIndex, string> FaceDAT::ChanNames = {
-    { FaceDAT::InfoChopIndex::FaceProcessing, "faceProcessing" }
+    { FaceDAT::InfoChopIndex::FaceProcessing, "faceProcessing" },
+    { FaceDAT::InfoChopIndex::RequestsTableSize, "requestsTableSize" }
 };
 
 //******************************************************************************
 FaceDAT::FaceDAT(const OP_NodeInfo* info)
 : BaseDAT(info)
 , nfdHost_("localhost")
+, mustBeFresh_(false)
+, lifetime_(4000)
+, requestsTable_(make_shared<RequestsTable>())
 {
     dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
 }
 
 FaceDAT::~FaceDAT()
 {
+    cancelRequests();
 }
 
 void
 FaceDAT::getGeneralInfo(DAT_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
-	ginfo->cookEveryFrameIfAsked = false;
+	ginfo->cookEveryFrameIfAsked = true;
 }
 
 void
@@ -126,33 +133,41 @@ FaceDAT::makeText(DAT_Output* output)
 	output->setText("This is some test data.");
 }
 
+typedef struct _NewRequest {
+    
+} NewRequest;
+
 void
 FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
 {
     BaseDAT::execute(output, inputs, reserved);
 
-//    if (!output)
-//        return;
-//
-//    if (inputs->getNumInputs() > 0)
-//    {
-//        inputs->enablePar("Rows", 0);        // not used
-//        inputs->enablePar("Cols", 0);        // not used
-//        inputs->enablePar("Outputtype", 0);    // not used
-//
-//        const OP_DATInput    *cinput = inputs->getInputDAT(0);
-//
-//        int numRows = cinput->numRows;
-//        int numCols = cinput->numCols;
-//        bool isTable = cinput->isTable;
-//
-//        if (!isTable) // is Text
-//        {
-//            const char* str = cinput->getCell(0, 0);
-//            output->setText(str);
-//        }
-//        else
-//        {
+    if (inputs->getNumInputs() > 0)
+    {
+        vector<shared_ptr<Interest>> inputInterests;
+        const OP_DATInput    *cinput = inputs->getInputDAT(0);
+        bool isTable = cinput->isTable;
+
+        if (!isTable) // is Text
+        {
+            // split by newline
+            stringstream ss(cinput->getCell(0, 0));
+            string prefix;
+            while (getline(ss, prefix))
+            {
+                if (prefix != "")
+                {
+                    shared_ptr<Interest> i = make_shared<Interest>(prefix);
+                    i->setInterestLifetimeMilliseconds(lifetime_);
+                    i->setMustBeFresh(mustBeFresh_);
+                    inputInterests.push_back(i);
+                }
+            }
+        }
+        else
+        {
+            int numRows = cinput->numRows;
+            int numCols = cinput->numCols;
 //            output->setOutputDataType(DAT_OutDataType::Table);
 //            output->setTableSize(numRows, numCols);
 //
@@ -164,63 +179,50 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
 //                    output->setCellString(i, j, str);
 //                }
 //            }
-//        }
-//
-//    }
-//    else // If no input is connected, lets output a custom table/text DAT
-//    {
-//        inputs->enablePar("Rows", 1);
-//        inputs->enablePar("Cols", 1);
-//        inputs->enablePar("Outputtype", 1);
-//
-//        int outputDataType = inputs->getParInt("Outputtype");
-//        int     numRows = inputs->getParInt("Rows");
-//        int     numCols = inputs->getParInt("Cols");
-//
-//        switch (outputDataType)
-//        {
-//            case 0:        // Table
-//                makeTable(output, numRows, numCols);
-//                break;
-//
-//            case 1:        // Text
-//                makeText(output);
-//                break;
-//
-//            default: // table
-//                makeTable(output, numRows, numCols);
-//                break;
-//        }
-//
-//        // if there is an input chop parameter:
-//        const OP_CHOPInput    *cinput = inputs->getParCHOP("Chop");
-//        if (cinput)
-//        {
-//            int numSamples = cinput->numSamples;
-//            int ind = 0;
-//            for (int i = 0; i < cinput->numChannels; i++)
-//            {
-//                myChopChanName = std::string(cinput->getChannelName(i));
-//                myChop = inputs->getParString("Chop");
-//
-//                static char tempBuffer[50];
-//                myChopChanVal = float(cinput->getChannelData(i)[ind]);
-//
-//#ifdef _WIN32
-//                sprintf_s(tempBuffer, "%g", myChopChanVal);
-//#else // macOS
-//                snprintf(tempBuffer, sizeof(tempBuffer), "%g", myChopChanVal);
-//#endif
-//                if (numCols == 0)
-//                    numCols = 2;
-//                output->setTableSize(numRows + i + 1, numCols);
-//                output->setCellString(numRows + i, 0, myChopChanName.c_str());
-//                output->setCellString(numRows + i, 1, &tempBuffer[0]);
-//            }
-//
-//        }
-//
-//    }
+        }
+        
+        // check if we need to express new interests
+        // cancel all requests and flush table if input has new data or any interest parameter has changed
+        bool flushTable = false;
+        requestsTable_->acquire([&inputInterests, &flushTable](RequestsDict &d){
+            for (auto i : inputInterests)
+            {
+                RequestsDict::iterator it = d.find(i->getName().toUri());
+                if (it == d.end())
+                    flushTable = true;
+                else
+                    flushTable = (i->getInterestLifetimeMilliseconds() != it->second.interest_->getInterestLifetimeMilliseconds() ||
+                                  i->getMustBeFresh() != it->second.interest_->getMustBeFresh());
+                if (flushTable)
+                    break;
+            }
+        });
+        
+        if (flushTable)
+        {
+            cancelRequests();
+            requestsTable_->acquire([](RequestsDict &d){
+                d.clear();
+            });
+            express(inputInterests);
+        }
+    }
+    
+    if (requestsTable_->dict_.size())
+    {
+        output->setTableSize((int32_t)requestsTable_->dict_.size(), 2);
+        requestsTable_->acquire([output](RequestsDict &d){
+            int rowIdx = 0;
+            for (auto p : d)
+                FaceDAT::setOutputEntry(output, p, rowIdx++);
+        });
+    }
+    else
+    {
+        output->setOutputDataType(DAT_OutDataType::Text);
+        output->setText("");
+    }
+    
 }
 
 int32_t
@@ -236,16 +238,26 @@ FaceDAT::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
     
     if (index < ChanNames.size())
     {
+        chan->name->setString(ChanNames.at(idx).c_str());
+
         switch (idx) {
             case FaceDAT::InfoChopIndex::FaceProcessing:
             {
-                bool faceProc = faceProcessor_ && faceProcessor_->isProcessing();
-                chan->value = (faceProcessor_ && faceProc ? 1. : 0.);
-                chan->name->setString(ChanNames.at(idx).c_str());
+                chan->value = faceProcessor_ && faceProcessor_->isProcessing();
             }
                 break;
-                
+            case FaceDAT::InfoChopIndex::RequestsTableSize:
+            {
+                chan->value = requestsTable_->dict_.size();
+            }
+                break;
             default:
+            {
+                chan->value = 0;
+                stringstream ss;
+                ss << "n_a_" << index;
+                chan->name->setString(ss.str().c_str());
+            }
                 break;
         }
     }
@@ -290,6 +302,27 @@ FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 		OP_ParAppendResult res = manager->appendString(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
+    
+    {
+        OP_NumericParameter np(PAR_EXPRESS);
+        
+        np.label = PAR_EXPRESS_LABEL;
+        np.page = PAR_PAGE_DEFAULT;
+        
+        OP_ParAppendResult res = manager->appendPulse(np);
+        assert(res == OP_ParAppendResult::Success);
+    }
+}
+
+void
+FaceDAT::pulsePressed(const char *name, void *reserved1)
+{
+    BaseDAT::pulsePressed(name, reserved1);
+    
+    if (strcmp(name, PAR_EXPRESS) == 0)
+    {
+        // do nothing? since pulse will force cook...
+    }
 }
 
 void
@@ -342,4 +375,132 @@ FaceDAT::paramsUpdated(const std::set<std::string> &updatedParams)
     }
 }
 
+void
+FaceDAT::express(const vector<shared_ptr<Interest>>& interests)
+{
+    for (auto i : interests) express(i);
+}
 
+void
+FaceDAT::express(std::string prefix, int lifetime, bool mustBeFresh)
+{
+    shared_ptr<Interest> i = make_shared<Interest>(prefix);
+    i->setInterestLifetimeMilliseconds(lifetime);
+    i->setMustBeFresh(mustBeFresh);
+    express(i);
+}
+
+void
+FaceDAT::express(shared_ptr<Interest> &i)
+{
+    shared_ptr<RequestsTable> rt = requestsTable_;
+    faceProcessor_->dispatchSynchronized([i, rt](shared_ptr<Face> f){
+
+        // NOTE: callbacks are called on Face thread!
+        rt->cancelIfPending(*i, *f);
+        uint64_t piId = f->expressInterest(*i,
+                           [rt](const shared_ptr<const Interest>& i, const shared_ptr<Data>& d){
+                               cout << "data    " << i->getName() << endl;
+                               rt->setData(i, d);
+                           },
+                           [rt](const shared_ptr<const Interest>& i){
+                               cout << "timeout " << i->getName() << endl;
+                               rt->setTimeout(i);
+                           },
+                           [rt](const shared_ptr<const Interest>& i, const shared_ptr<NetworkNack>& nack){
+                               cout << "nack    " << i->getName() << endl;
+                               rt->setNack(i, nack);
+                           });
+        assert(rt->setExpressed(i, piId));
+    });
+}
+
+void
+FaceDAT::cancelRequests()
+{
+    // cancel all pending requests and quit
+    shared_ptr<RequestsTable> rt = requestsTable_;
+    faceProcessor_->dispatchSynchronized([rt](shared_ptr<Face> f){
+        rt->acquire([&](RequestsDict &d){
+            for (auto it : d)
+            {
+                f->removePendingInterest(it.second.pitId_);
+                it.second.isCanceled_ = true;
+            }
+        });
+    });
+}
+
+void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
+{
+    string status = (p.second.data_ ? "data" : (p.second.isTimeout_ ? "timeout" : "nack"));
+    output->setCellString(row, 0, p.first.c_str());
+    output->setCellString(row, 1, status.c_str());
+}
+
+//******************************************************************************
+void FaceDAT::RequestsTable::acquireIfExists(const Interest &i, std::function<void (RequestsDict &, RequestsDict::iterator &it)> f)
+{
+    lock_guard<recursive_mutex> scopedLock(mx_);
+    RequestsDict::iterator it = dict_.find(i.getName().toUri());
+    if (it != dict_.end()) f(dict_, it);
+}
+
+bool FaceDAT::RequestsTable::cancelIfPending(const ndn::Interest &i, ndn::Face &f)
+{
+    bool res = false;
+    
+    acquireIfExists(i,[&](RequestsDict &d, RequestsDict::iterator &it){
+        f.removePendingInterest(it->second.pitId_);
+        d.erase(it);
+        res = true;
+    });
+    return res;
+}
+
+bool FaceDAT::RequestsTable::setExpressed(const std::shared_ptr<const ndn::Interest>& i, uint64_t id)
+{
+    bool res = false;
+    
+    acquire([&](RequestsDict &d){
+        // there should be no pending interests. use cancelIfPending to clear beforehand
+        if (d.find(i->getName().toUri()) == d.end())
+        {
+            RequestStatus rs;
+            rs.interest_ = i;
+            rs.pitId_ = id;
+            rs.isTimeout_ = false;
+
+            d[i->getName().toUri()] = rs;
+            res = true;
+        }
+    });
+    return res;
+}
+
+bool FaceDAT::RequestsTable::setData(const std::shared_ptr<const ndn::Interest> &i, const std::shared_ptr<ndn::Data> &data)
+{
+    bool res = false;
+    acquireIfExists(*i, [&](RequestsDict &d, RequestsDict::iterator &it){
+        it->second.data_ = data;
+    });
+    return res;
+}
+
+bool FaceDAT::RequestsTable::setTimeout(const std::shared_ptr<const ndn::Interest> &i)
+{
+    bool res = false;
+    acquireIfExists(*i, [&](RequestsDict &d, RequestsDict::iterator &it){
+        it->second.isTimeout_ = true;
+    });
+    return res;
+}
+
+bool FaceDAT::RequestsTable::setNack(const std::shared_ptr<const ndn::Interest> &i, const std::shared_ptr<ndn::NetworkNack> &n)
+{
+    bool res = false;
+    acquireIfExists(*i, [&](RequestsDict &d, RequestsDict::iterator &it){
+        it->second.nack_ = n;
+    });
+    return res;
+}

@@ -20,10 +20,18 @@
 
 #include <string>
 #include <map>
+#include <mutex>
 
 #include "DAT_CPlusPlusBase.h"
 #include "baseDAT.hpp"
 
+
+namespace ndn {
+    class Face;
+    class Data;
+    class Interest;
+    class NetworkNack;
+}
 
 namespace touch_ndn
 {
@@ -36,7 +44,8 @@ namespace touch_ndn
     {
     public:
         enum class InfoChopIndex : int32_t {
-            FaceProcessing
+            FaceProcessing,
+            RequestsTableSize
         };
         enum class InfoDatIndex : int32_t {
             // nothing
@@ -65,16 +74,14 @@ namespace touch_ndn
                                               void* reserved1) override;
         
         virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
-//        virtual void        pulsePressed(const char* name, void* reserved1) override;
+        virtual void        pulsePressed(const char* name, void* reserved1) override;
+        
+        std::shared_ptr<helpers::FaceProcessor> getFaceProcessor() const
+        { return faceProcessor_; }
         
     private:
         
         const OP_NodeInfo*	myNodeInfo;
-        
-        void initPulsed() override;
-        void initFace(DAT_Output*, const OP_Inputs*, void* reserved);
-        void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
-        void paramsUpdated(const std::set<std::string>&) override;
         
         void                makeTable(DAT_Output* output, int numRows, int numCols);
         void                makeText(DAT_Output* output);
@@ -82,8 +89,58 @@ namespace touch_ndn
         
         //******************************************************************************
         std::string nfdHost_;
+        int32_t lifetime_;
+        bool mustBeFresh_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
+        
+        typedef struct _RequestStatus {
+            _RequestStatus():isTimeout_(false), isCanceled_(false), pitId_(0){}
+            
+            uint64_t pitId_;
+            bool isTimeout_, isCanceled_;
+            std::shared_ptr<const ndn::Interest> interest_;
+            std::shared_ptr<ndn::Data> data_;
+            std::shared_ptr<ndn::NetworkNack> nack_;
+            
+            bool isDone() { return data_ || nack_ || isTimeout_; }
+        } RequestStatus;
+
+        typedef std::map<std::string, RequestStatus> RequestsDict;
+        typedef std::pair<const std::string, RequestStatus> RequestsDictPair;
+        typedef struct _RequestsTable {
+            std::recursive_mutex mx_;
+            RequestsDict dict_;
+            
+            // mutually acquires access to the table
+            void acquire(std::function<void(RequestsDict& d)> f) {
+                std::lock_guard<std::recursive_mutex> scopedLock(mx_);
+                f(dict_);
+            }
+            // mutually acquires access to the table if entry, specified by provided interest, existst
+            // client callback will be supplied with a copy of the table entry, which should be used
+            void acquireIfExists(const ndn::Interest&,
+                                 std::function<void(RequestsDict& d, RequestsDict::iterator &it)> f);
+            
+            bool cancelIfPending(const ndn::Interest&, ndn::Face& f);
+            bool setExpressed(const std::shared_ptr<const ndn::Interest>&, uint64_t);
+            bool setData(const std::shared_ptr<const ndn::Interest>&, const std::shared_ptr<ndn::Data>&);
+            bool setTimeout(const std::shared_ptr<const ndn::Interest>&);
+            bool setNack(const std::shared_ptr<const ndn::Interest>&, const std::shared_ptr<ndn::NetworkNack>&);
+        } RequestsTable;
+        std::shared_ptr<RequestsTable> requestsTable_;
       
+        void initPulsed() override;
+        void initFace(DAT_Output*, const OP_Inputs*, void* reserved);
+        void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
+        void paramsUpdated(const std::set<std::string>&) override;
+        
+        void express(const std::vector<std::shared_ptr<ndn::Interest>>&);
+        void express(std::string prefix, int lifetime, bool mustBeFresh);
+        void express(std::shared_ptr<ndn::Interest>&);
+        void cancelRequests();
+        
+        static void setOutputEntry(DAT_Output *output, RequestsDictPair &, int row);
+        
       
     };
     
