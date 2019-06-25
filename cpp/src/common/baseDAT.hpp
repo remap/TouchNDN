@@ -27,6 +27,11 @@
 #include "baseOP.hpp"
 #include "DAT_CPlusPlusBase.h"
 
+
+namespace ndn {
+    class Blob;
+}
+
 namespace touch_ndn {
     
     class BaseDAT : public BaseOp<DAT_CPlusPlusBase> {
@@ -38,6 +43,8 @@ namespace touch_ndn {
                                     const OP_Inputs* inputs,
                                     void* reserved1) override;
         
+        static std::string toBase64(const ndn::Blob&);
+        static void fromBase64(const std::string&, std::vector<uint8_t>&);
     protected:
         
     };

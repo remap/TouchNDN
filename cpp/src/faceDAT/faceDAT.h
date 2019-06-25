@@ -92,7 +92,7 @@ namespace touch_ndn
         //******************************************************************************
         std::string nfdHost_;
         int32_t lifetime_;
-        bool mustBeFresh_, showHeaders_, showFullName_;
+        bool mustBeFresh_, showHeaders_, showFullName_, showRawStr_;
         uint32_t nExpressed_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
         std::set<std::string> currentOutputs_;

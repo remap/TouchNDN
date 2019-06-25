@@ -21,7 +21,10 @@
 #include <stdio.h>
 #include <string>
 
+#include <ndn-cpp/util/blob.hpp>
+
 #include "baseDAT.hpp"
+#include "contrib/apache/apr_base64.h"
 
 using namespace std;
 using namespace touch_ndn;
@@ -43,3 +46,51 @@ BaseDAT::getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *r
     ginfo->cookEveryFrameIfAsked = true;
 }
 
+std::string
+BaseDAT::toBase64(const ndn::Blob &blob)
+{
+    vector<char> output(::apr_base64_encode_len((int)blob.size()));
+    size_t outputLength = (size_t)::apr_base64_encode_binary(&output[0], blob.buf(), (int)blob.size()) - 1;
+    
+    return string(output.begin(), output.begin()+outputLength);
+}
+
+// borrowed from
+// https://github.com/named-data/ndn-cpp/blob/a319d02f7c7c9480202a0bcee7c56f7eb5230e58/src/encoding/base64.cpp#L58
+void
+BaseDAT::fromBase64(const std::string &input, std::vector<uint8_t> &output)
+{
+    // We are only concerned with whitespace characters which are all less than
+    // the first base64 character '+'. If we find whitespace, then we'll copy
+    // non-whitespace to noWhitespaceStream.
+    ostringstream noWhitespaceStream;
+    bool gotWhitespace = false;
+    for (size_t i = 0; i < input.size(); ++i) {
+        if (input[i] < '+') {
+            if (!gotWhitespace) {
+                // We need to use the noWitespaceStream. Initialize it.
+                gotWhitespace = true;
+                noWhitespaceStream.write(&input[0], i);
+            }
+        }
+        else {
+            if (gotWhitespace)
+                noWhitespaceStream << input[i];
+        }
+    }
+    
+    string noWhitespace;
+    const char* inputCString;
+    if (gotWhitespace) {
+        noWhitespace = noWhitespaceStream.str();
+        inputCString = noWhitespace.c_str();
+    }
+    else
+        // The input didn't have any whitespace, so use it as is.
+        inputCString = input.c_str();
+    
+    output.resize(::apr_base64_decode_len(inputCString));
+    size_t outputLength = (size_t)::apr_base64_decode_binary
+    (&output[0], inputCString);
+    output.resize(outputLength);
+}

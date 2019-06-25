@@ -48,9 +48,9 @@
 #define PAR_OUT_DATA_SIGNATURE "Signature"
 #define PAR_OUT_DATA_NAME "Dataname"
 #define PAR_OUT_DRD "Drd"
-
 #define PAR_OUT_FULLNAME "Fullname"
 #define PAR_OUT_HEADERS "Headers"
+#define PAR_OUT_RAWSTR "Rawstr"
 #define PAR_OUTPUT_DATA "Data"
 
 using namespace std;
@@ -115,6 +115,7 @@ enum class Outputs : int32_t {
 const unordered_map<string, string> OutputLabels = {
     { PAR_OUT_HEADERS, "Header" },
     { PAR_OUT_FULLNAME, "Full Data Name" },
+    { PAR_OUT_RAWSTR, "Raw" },
     { PAR_OUT_INTEREST, "Interest" },
     { PAR_OUT_STATUS, "Status" },
     { PAR_OUT_DATA_NAME, "Data Name" },
@@ -148,10 +149,11 @@ FaceDAT::FaceDAT(const OP_NodeInfo* info)
 , requestsTable_(make_shared<RequestsTable>())
 , showHeaders_(true)
 , showFullName_(false)
+, showRawStr_(false)
 {
-    for (auto p : OutputLabels)
-        currentOutputs_.insert(p.first);
-
+//    for (auto p : OutputLabels)
+//        currentOutputs_.insert(p.first);
+    currentOutputs_ = {PAR_OUT_HEADERS, PAR_OUT_DRD, PAR_OUT_INTEREST, PAR_OUT_DATA_NAME, PAR_OUT_PAYLOAD_SIZE, PAR_OUT_STATUS, PAR_OUT_RAWSTR};
     dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
 }
 
@@ -472,6 +474,7 @@ FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inp
     
     showHeaders_ = inputs->getParInt(PAR_OUT_HEADERS);
     showFullName_ = inputs->getParInt(PAR_OUT_FULLNAME);
+    showRawStr_ = inputs->getParInt(PAR_OUT_RAWSTR);
 }
 
 void
@@ -591,7 +594,8 @@ void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
                     break;
                 case Outputs::Signature:
                     if (p.second.data_)
-                        output->setCellString(row, colIdx, p.second.data_->getSignature()->getSignature().toHex().c_str());
+                        output->setCellString(row, colIdx,
+                                              BaseDAT::toBase64(p.second.data_->getSignature()->getSignature()).c_str());
                     else
                         output->setCellString(row, colIdx, "");
                     break;
@@ -606,7 +610,14 @@ void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
     }
     
     if (p.second.data_)
-        output->setCellString(row, colIdx, p.second.data_->getContent().toHex().c_str());
+    {
+        if (!showRawStr_)
+            output->setCellString(row, colIdx,
+                                  BaseDAT::toBase64(p.second.data_->getContent()).c_str());
+        else
+            output->setCellString(row, colIdx,
+                                  p.second.data_->getContent().toRawStr().c_str());
+    }
     else
         output->setCellString(row, colIdx, "");
 }

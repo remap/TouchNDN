@@ -14,6 +14,8 @@
 		AF5A951B22B4758400662FAD /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
 		AF5A951C22B4788E00662FAD /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
 		AF5A951F22B4A1F400662FAD /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
+		AFB405F922C2B6D30036C08A /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AFB405F622C2B6D30036C08A /* LICENSE */; };
+		AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -50,6 +52,9 @@
 		AF5A951922B4755C00662FAD /* libboost_system.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libboost_system.a; path = ../../../../../../../usr/local/lib/libboost_system.a; sourceTree = "<group>"; };
 		AF5A951D22B4A1F400662FAD /* baseOP.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = baseOP.cpp; path = src/common/baseOP.cpp; sourceTree = "<group>"; };
 		AF5A951E22B4A1F400662FAD /* baseOP.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = baseOP.hpp; path = src/common/baseOP.hpp; sourceTree = "<group>"; };
+		AFB405F622C2B6D30036C08A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		AFB405F722C2B6D30036C08A /* apr_base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = apr_base64.c; sourceTree = "<group>"; };
+		AFB405F822C2B6D30036C08A /* apr_base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = apr_base64.h; sourceTree = "<group>"; };
 		E227270F21B6EE9A00905532 /* faceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = faceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		E227271221B6EE9A00905532 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -70,6 +75,7 @@
 		AF5A94DC22B4437C00662FAD /* common */ = {
 			isa = PBXGroup;
 			children = (
+				AFB405F422C2B6D30036C08A /* contrib */,
 				AF5A94F222B4562F00662FAD /* CPlusPlus_Common.h */,
 				AF5A94F422B4562F00662FAD /* DAT_CPlusPlusBase.h */,
 				AF5A94F322B4562F00662FAD /* GL_Extensions.h */,
@@ -134,6 +140,25 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		AFB405F422C2B6D30036C08A /* contrib */ = {
+			isa = PBXGroup;
+			children = (
+				AFB405F522C2B6D30036C08A /* apache */,
+			);
+			name = contrib;
+			path = src/common/contrib;
+			sourceTree = "<group>";
+		};
+		AFB405F522C2B6D30036C08A /* apache */ = {
+			isa = PBXGroup;
+			children = (
+				AFB405F622C2B6D30036C08A /* LICENSE */,
+				AFB405F722C2B6D30036C08A /* apr_base64.c */,
+				AFB405F822C2B6D30036C08A /* apr_base64.h */,
+			);
+			path = apache;
 			sourceTree = "<group>";
 		};
 		E227270621B6EE9A00905532 = {
@@ -224,6 +249,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AFB405F922C2B6D30036C08A /* LICENSE in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,6 +263,7 @@
 				AF5A951122B4621000662FAD /* baseDAT.cpp in Sources */,
 				AF5A951F22B4A1F400662FAD /* baseOP.cpp in Sources */,
 				AF5A951B22B4758400662FAD /* face-processor.cpp in Sources */,
+				AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */,
 				AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
