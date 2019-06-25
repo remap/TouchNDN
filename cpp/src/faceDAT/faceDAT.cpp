@@ -26,6 +26,7 @@
 #include <math.h>
 #include <assert.h>
 #include <array>
+#include <unordered_map>
 
 #include <ndn-cpp/face.hpp>
 #include <ndn-cpp/key-locator.hpp>
@@ -110,7 +111,10 @@ enum class Outputs : int32_t {
     Drd
 };
 
-const map<string, string> OutputLabels = {
+
+const unordered_map<string, string> OutputLabels = {
+    { PAR_OUT_HEADERS, "Header" },
+    { PAR_OUT_FULLNAME, "Full Data Name" },
     { PAR_OUT_INTEREST, "Interest" },
     { PAR_OUT_STATUS, "Status" },
     { PAR_OUT_DATA_NAME, "Data Name" },
@@ -119,9 +123,7 @@ const map<string, string> OutputLabels = {
     { PAR_OUT_DATA_FRESHNESS, "Data Freshness" },
     { PAR_OUT_DATA_KEYLOCATOR, "Keylocator" },
     { PAR_OUT_DATA_SIGNATURE, "Signature" },
-    { PAR_OUT_DRD, "Data Retrieval Delay" },
-    { PAR_OUT_HEADERS, "Header" },
-    { PAR_OUT_FULLNAME, "Full Data Name" }
+    { PAR_OUT_DRD, "Data Retrieval Delay" }
 };
 
 // this table defines column ordering in the output table
