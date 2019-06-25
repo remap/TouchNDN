@@ -266,10 +266,7 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
         if (flushTable)
         {
             cancelRequests();
-            requestsTable_->acquire([](RequestsDict &d){
-                d.clear();
-            });
-            express(inputInterests);
+            express(inputInterests, flushTable);
         }
     }
     
@@ -487,13 +484,17 @@ FaceDAT::paramsUpdated(const std::set<std::string> &updatedParams)
 }
 
 void
-FaceDAT::express(const vector<shared_ptr<Interest>>& interests)
+FaceDAT::express(const vector<shared_ptr<Interest>>& interests, bool clearTable)
 {
-    for (auto i : interests) express(i);
+    for (auto i : interests)
+    {
+        express(i, clearTable);
+        clearTable = false;
+    }
 }
 
 void
-FaceDAT::express(std::string prefix, int lifetime, bool mustBeFresh)
+FaceDAT::express(std::string prefix, int lifetime, bool mustBeFresh, bool clearTable)
 {
     shared_ptr<Interest> i = make_shared<Interest>(prefix);
     i->setInterestLifetimeMilliseconds(lifetime);
@@ -502,11 +503,16 @@ FaceDAT::express(std::string prefix, int lifetime, bool mustBeFresh)
 }
 
 void
-FaceDAT::express(shared_ptr<Interest> &i)
+FaceDAT::express(shared_ptr<Interest> &i, bool clearTable)
 {
     shared_ptr<RequestsTable> rt = requestsTable_;
     nExpressed_++;
-    faceProcessor_->dispatchSynchronized([i, rt](shared_ptr<Face> f){
+    faceProcessor_->dispatchSynchronized([i, rt, clearTable](shared_ptr<Face> f){
+        if (clearTable)
+            rt->acquire([](RequestsDict &d){
+                d.clear();
+            });
+
         // NOTE: callbacks are called on Face thread!
         rt->cancelIfPending(*i, *f);
         uint64_t piId = f->expressInterest(*i,
@@ -565,7 +571,7 @@ void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
                     break;
                 case Outputs::Status:
                 {
-                    string status = "pending";
+                    string status = p.second.isCanceled_ ? "canceled" : "pending";
                     if (p.second.isDone())
                         status = (p.second.data_ ? "data" : (p.second.isTimeout_ ? "timeout" : "nack"));
                     output->setCellString(row, colIdx, status.c_str());

@@ -142,9 +142,9 @@ namespace touch_ndn
         void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
         void paramsUpdated(const std::set<std::string>&) override;
         
-        void express(const std::vector<std::shared_ptr<ndn::Interest>>&);
-        void express(std::string prefix, int lifetime, bool mustBeFresh);
-        void express(std::shared_ptr<ndn::Interest>&);
+        void express(const std::vector<std::shared_ptr<ndn::Interest>>&, bool);
+        void express(std::string prefix, int lifetime, bool mustBeFresh, bool clearTable = false);
+        void express(std::shared_ptr<ndn::Interest>&, bool clearTable = false);
         void cancelRequests();
         
         void setOutputEntry(DAT_Output *output, RequestsDictPair &, int row);
