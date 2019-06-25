@@ -28,6 +28,7 @@
 #include <array>
 
 #include <ndn-cpp/face.hpp>
+#include <ndn-cpp/key-locator.hpp>
 
 #include "face-processor.hpp"
 
@@ -35,6 +36,21 @@
 #define PAR_NFD_HOST_LABEL "NFD Host"
 #define PAR_EXPRESS "Express"
 #define PAR_EXPRESS_LABEL "Express"
+
+#define PAR_PAGE_OUTPUT "Output"
+#define PAR_OUT_INTEREST "Interest"
+#define PAR_OUT_STATUS "Status"
+#define PAR_OUT_PAYLOAD_SIZE "Payloadsize"
+#define PAR_OUT_DATA_SIZE "Datasize"
+#define PAR_OUT_DATA_FRESHNESS "Datafreshness"
+#define PAR_OUT_DATA_KEYLOCATOR "Keylocator"
+#define PAR_OUT_DATA_SIGNATURE "Signature"
+#define PAR_OUT_DATA_NAME "Dataname"
+#define PAR_OUT_DRD "Drd"
+
+#define PAR_OUT_FULLNAME "Fullname"
+#define PAR_OUT_HEADERS "Headers"
+#define PAR_OUTPUT_DATA "Data"
 
 using namespace std;
 using namespace std::placeholders;
@@ -82,6 +98,45 @@ const map<FaceDAT::InfoChopIndex, string> FaceDAT::ChanNames = {
     { FaceDAT::InfoChopIndex::ExpressedNum, "expressedNum" }
 };
 
+enum class Outputs : int32_t {
+    Interest,
+    Status,
+    DataName,
+    PayloadSize,
+    DataSize,
+    Freshness,
+    Keylocator,
+    Signature,
+    Drd
+};
+
+const map<string, string> OutputLabels = {
+    { PAR_OUT_INTEREST, "Interest" },
+    { PAR_OUT_STATUS, "Status" },
+    { PAR_OUT_DATA_NAME, "Data Name" },
+    { PAR_OUT_PAYLOAD_SIZE, "Payload Size" },
+    { PAR_OUT_DATA_SIZE, "Data Size" },
+    { PAR_OUT_DATA_FRESHNESS, "Data Freshness" },
+    { PAR_OUT_DATA_KEYLOCATOR, "Keylocator" },
+    { PAR_OUT_DATA_SIGNATURE, "Signature" },
+    { PAR_OUT_DRD, "Data Retrieval Delay" },
+    { PAR_OUT_HEADERS, "Header" },
+    { PAR_OUT_FULLNAME, "Full Data Name" }
+};
+
+// this table defines column ordering in the output table
+const map<Outputs, string> OutputsMap = {
+    { Outputs::Interest, PAR_OUT_INTEREST },
+    { Outputs::Status, PAR_OUT_STATUS },
+    { Outputs::DataName, PAR_OUT_DATA_NAME },
+    { Outputs::PayloadSize, PAR_OUT_PAYLOAD_SIZE },
+    { Outputs::DataSize, PAR_OUT_DATA_SIZE },
+    { Outputs::Freshness, PAR_OUT_DATA_FRESHNESS },
+    { Outputs::Keylocator, PAR_OUT_DATA_KEYLOCATOR },
+    { Outputs::Signature, PAR_OUT_DATA_SIGNATURE },
+    { Outputs::Drd, PAR_OUT_DRD }
+};
+
 //******************************************************************************
 FaceDAT::FaceDAT(const OP_NodeInfo* info)
 : BaseDAT(info)
@@ -89,7 +144,12 @@ FaceDAT::FaceDAT(const OP_NodeInfo* info)
 , mustBeFresh_(false)
 , lifetime_(4000)
 , requestsTable_(make_shared<RequestsTable>())
+, showHeaders_(true)
+, showFullName_(false)
 {
+    for (auto p : OutputLabels)
+        currentOutputs_.insert(p.first);
+
     dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
 }
 
@@ -211,11 +271,27 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
     
     if (requestsTable_->dict_.size())
     {
-        output->setTableSize((int32_t)requestsTable_->dict_.size(), 2);
-        requestsTable_->acquire([output](RequestsDict &d){
-            int rowIdx = 0;
+        output->setTableSize((int32_t)requestsTable_->dict_.size()+showHeaders_, (int32_t)currentOutputs_.size()+1);
+        
+        // set headers
+        int colIdx = 0;
+        int rowIdx = 0;
+        if (showHeaders_)
+        {
+            for (auto p : OutputsMap)
+                if (currentOutputs_.find(p.second) != currentOutputs_.end())
+                {
+                    string header = OutputLabels.at(p.second);
+                    output->setCellString(0, colIdx, header.c_str());
+                    colIdx++;
+                }
+            output->setCellString(0, colIdx, PAR_OUTPUT_DATA);
+            rowIdx++;
+        }
+        
+        requestsTable_->acquire([output, &rowIdx, this](RequestsDict &d){
             for (auto p : d)
-                FaceDAT::setOutputEntry(output, p, rowIdx++);
+                setOutputEntry(output, p, rowIdx++);
         });
     }
     else
@@ -308,7 +384,6 @@ FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 		OP_ParAppendResult res = manager->appendString(np);
 		assert(res == OP_ParAppendResult::Success);
 	}
-    
     {
         OP_NumericParameter np(PAR_EXPRESS);
         
@@ -317,6 +392,21 @@ FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
         
         OP_ParAppendResult res = manager->appendPulse(np);
         assert(res == OP_ParAppendResult::Success);
+    }
+    
+    { // outputs page
+        for (auto p : OutputLabels)
+        {
+            OP_NumericParameter np(p.first.c_str());
+            np.page = PAR_PAGE_OUTPUT;
+        
+            bool enabled = (currentOutputs_.find(np.name) != currentOutputs_.end() ? true : false);
+            np.defaultValues[0] = enabled;
+            np.label = OutputLabels.at(np.name).c_str();
+            
+            OP_ParAppendResult res = manager->appendToggle(np);
+            assert(res == OP_ParAppendResult::Success);
+        }
     }
 }
 
@@ -370,6 +460,16 @@ FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inp
         paramNames.insert(PAR_NFD_HOST);
         nfdHost_ = string(inputs->getParString(PAR_NFD_HOST));
     }
+    
+    currentOutputs_.clear();
+    for (auto p : OutputsMap)
+    {
+        int val = inputs->getParInt(p.second.c_str());
+        if (val == 1) currentOutputs_.insert(p.second);
+    }
+    
+    showHeaders_ = inputs->getParInt(PAR_OUT_HEADERS);
+    showFullName_ = inputs->getParInt(PAR_OUT_FULLNAME);
 }
 
 void
@@ -439,9 +539,74 @@ FaceDAT::cancelRequests()
 
 void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
 {
-    string status = (p.second.data_ ? "data" : (p.second.isTimeout_ ? "timeout" : "nack"));
-    output->setCellString(row, 0, p.first.c_str());
-    output->setCellString(row, 1, status.c_str());
+    int colIdx = 0;
+    for (auto l : OutputsMap)
+    {
+        if (currentOutputs_.find(l.second) != currentOutputs_.end())
+        {
+            switch (l.first) {
+                case Outputs::Interest:
+                    output->setCellString(row, colIdx, p.first.c_str());
+                    break;
+                case Outputs::DataName:
+                    if (p.second.data_)
+                    {
+                        Name n = (showFullName_ ? *(p.second.data_->getFullName()) : p.second.data_->getName());
+                        
+                        output->setCellString(row, colIdx, n.toUri().c_str());
+                    }
+                    else
+                        output->setCellString(row, colIdx, "");
+                    break;
+                case Outputs::Status:
+                {
+                    string status = "pending";
+                    if (p.second.isDone())
+                        status = (p.second.data_ ? "data" : (p.second.isTimeout_ ? "timeout" : "nack"));
+                    output->setCellString(row, colIdx, status.c_str());
+                }
+                    break;
+                case Outputs::PayloadSize:
+                    output->setCellInt(row, colIdx,
+                                       p.second.data_ ? (int32_t)p.second.data_->getContent().size() : 0);
+                    break;
+                case Outputs::DataSize:
+                    output->setCellInt(row, colIdx,
+                                       p.second.data_ ? (int32_t)p.second.data_->getDefaultWireEncoding().size() : 0);
+                    break;
+                case Outputs::Freshness:
+                    output->setCellInt(row, colIdx,
+                                       p.second.data_ ? (int32_t)p.second.data_->getMetaInfo().getFreshnessPeriod() : 0);
+                    break;
+                case Outputs::Keylocator:
+                    if (p.second.data_)
+                    {
+                        Name n = KeyLocator::getFromSignature(p.second.data_->getSignature()).getKeyName();
+                        output->setCellString(row, colIdx, n.toUri().c_str());
+                    }
+                    else
+                        output->setCellString(row, colIdx, "");
+                    break;
+                case Outputs::Signature:
+                    if (p.second.data_)
+                        output->setCellString(row, colIdx, p.second.data_->getSignature()->getSignature().toHex().c_str());
+                    else
+                        output->setCellString(row, colIdx, "");
+                    break;
+                case Outputs::Drd:
+                    output->setCellInt(row, colIdx, p.second.getDrd());
+                    break;
+                default:
+                    break;
+            }
+            colIdx++;
+        }
+    }
+    
+    if (p.second.data_)
+        output->setCellString(row, colIdx, p.second.data_->getContent().toHex().c_str());
+    else
+        output->setCellString(row, colIdx, "");
 }
 
 //******************************************************************************
@@ -476,6 +641,7 @@ bool FaceDAT::RequestsTable::setExpressed(const std::shared_ptr<const ndn::Inter
             rs.interest_ = i;
             rs.pitId_ = id;
             rs.isTimeout_ = false;
+            rs.expressTs_ = rs.replyTs_ = ndn_getNowMilliseconds();
 
             d[i->getName().toUri()] = rs;
             res = true;
@@ -489,6 +655,7 @@ bool FaceDAT::RequestsTable::setData(const std::shared_ptr<const ndn::Interest> 
     bool res = false;
     acquireIfExists(*i, [&](RequestsDict &d, RequestsDict::iterator &it){
         it->second.data_ = data;
+        it->second.replyTs_ = ndn_getNowMilliseconds();
     });
     return res;
 }

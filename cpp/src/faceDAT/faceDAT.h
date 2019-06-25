@@ -21,6 +21,7 @@
 #include <string>
 #include <map>
 #include <mutex>
+#include <set>
 
 #include "DAT_CPlusPlusBase.h"
 #include "baseDAT.hpp"
@@ -91,14 +92,19 @@ namespace touch_ndn
         //******************************************************************************
         std::string nfdHost_;
         int32_t lifetime_;
-        bool mustBeFresh_;
+        bool mustBeFresh_, showHeaders_, showFullName_;
         uint32_t nExpressed_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
+        std::set<std::string> currentOutputs_;
         
         typedef struct _RequestStatus {
-            _RequestStatus():isTimeout_(false), isCanceled_(false), pitId_(0){}
+            _RequestStatus(): isTimeout_(false), isCanceled_(false), pitId_(0),
+                expressTs_(0), replyTs_(0) {}
             
             uint64_t pitId_;
+            uint32_t expressTs_, replyTs_;
+            uint32_t getDrd(){ return replyTs_ - expressTs_;}
+            
             bool isTimeout_, isCanceled_;
             std::shared_ptr<const ndn::Interest> interest_;
             std::shared_ptr<ndn::Data> data_;
@@ -141,7 +147,7 @@ namespace touch_ndn
         void express(std::shared_ptr<ndn::Interest>&);
         void cancelRequests();
         
-        static void setOutputEntry(DAT_Output *output, RequestsDictPair &, int row);
+        void setOutputEntry(DAT_Output *output, RequestsDictPair &, int row);
         
       
     };
