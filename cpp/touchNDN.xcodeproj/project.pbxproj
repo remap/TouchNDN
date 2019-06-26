@@ -14,6 +14,17 @@
 		AF5A951B22B4758400662FAD /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
 		AF5A951C22B4788E00662FAD /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
 		AF5A951F22B4A1F400662FAD /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
+		AF70152C22C42EE8009D35F6 /* baseDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A950F22B4621000662FAD /* baseDAT.cpp */; };
+		AF70152D22C42EE8009D35F6 /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
+		AF70152F22C42EE8009D35F6 /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
+		AF70153222C42EE8009D35F6 /* libndn-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950C22B461C600662FAD /* libndn-cpp.a */; };
+		AF70153322C42EE8009D35F6 /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
+		AF70153D22C42F07009D35F6 /* keyChainDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A94F822B4564800662FAD /* keyChainDAT.cpp */; };
+		AF70154522C42F97009D35F6 /* touchdesigner.cert in Resources */ = {isa = PBXBuildFile; fileRef = AF70153F22C42F97009D35F6 /* touchdesigner.cert */; };
+		AF70154622C42F97009D35F6 /* policy.conf in Resources */ = {isa = PBXBuildFile; fileRef = AF70154022C42F97009D35F6 /* policy.conf */; };
+		AF70154B22C42FDE009D35F6 /* pib.db in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70154222C42F97009D35F6 /* pib.db */; };
+		AF70154C22C431CE009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */; };
+		AF70154D22C43293009D35F6 /* keyChainDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */; };
 		AFB405F922C2B6D30036C08A /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AFB405F622C2B6D30036C08A /* LICENSE */; };
 		AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
 /* End PBXBuildFile section */
@@ -26,6 +37,36 @@
 			dstSubfolderSpec = 0;
 			files = (
 				AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF70153622C42EE8009D35F6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = $PROJECT_DIR/plugins;
+			dstSubfolderSpec = 0;
+			files = (
+				AF70154D22C43293009D35F6 /* keyChainDAT.plugin in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF70154922C42FCB009D35F6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = keychain;
+			dstSubfolderSpec = 7;
+			files = (
+				AF70154B22C42FDE009D35F6 /* pib.db in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF70154A22C42FD2009D35F6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "keychain/ndnsec-key-file";
+			dstSubfolderSpec = 7;
+			files = (
+				AF70154C22C431CE009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,6 +93,12 @@
 		AF5A951922B4755C00662FAD /* libboost_system.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libboost_system.a; path = ../../../../../../../usr/local/lib/libboost_system.a; sourceTree = "<group>"; };
 		AF5A951D22B4A1F400662FAD /* baseOP.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = baseOP.cpp; path = src/common/baseOP.cpp; sourceTree = "<group>"; };
 		AF5A951E22B4A1F400662FAD /* baseOP.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = baseOP.hpp; path = src/common/baseOP.hpp; sourceTree = "<group>"; };
+		AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = keyChainDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF70153C22C42EE9009D35F6 /* faceDAT copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "faceDAT copy-Info.plist"; path = "/Users/peetonn/Documents/Work/touchNDN/repo/cpp/faceDAT copy-Info.plist"; sourceTree = "<absolute>"; };
+		AF70153F22C42F97009D35F6 /* touchdesigner.cert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = touchdesigner.cert; sourceTree = "<group>"; };
+		AF70154022C42F97009D35F6 /* policy.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = policy.conf; sourceTree = "<group>"; };
+		AF70154222C42F97009D35F6 /* pib.db */ = {isa = PBXFileReference; lastKnownFileType = file; path = pib.db; sourceTree = "<group>"; };
+		AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey; sourceTree = "<group>"; };
 		AFB405F622C2B6D30036C08A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		AFB405F722C2B6D30036C08A /* apr_base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = apr_base64.c; sourceTree = "<group>"; };
 		AFB405F822C2B6D30036C08A /* apr_base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = apr_base64.h; sourceTree = "<group>"; };
@@ -60,6 +107,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AF70153122C42EE8009D35F6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF70153222C42EE8009D35F6 /* libndn-cpp.a in Frameworks */,
+				AF70153322C42EE8009D35F6 /* libboost_system.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E227270C21B6EE9A00905532 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -101,6 +157,7 @@
 		AF5A94DE22B4438900662FAD /* keyChainDAT */ = {
 			isa = PBXGroup;
 			children = (
+				AF70153E22C42F97009D35F6 /* res */,
 				AF5A94F822B4564800662FAD /* keyChainDAT.cpp */,
 				AF5A94F922B4564800662FAD /* keyChainDAT.h */,
 			);
@@ -142,6 +199,34 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		AF70153E22C42F97009D35F6 /* res */ = {
+			isa = PBXGroup;
+			children = (
+				AF70153F22C42F97009D35F6 /* touchdesigner.cert */,
+				AF70154022C42F97009D35F6 /* policy.conf */,
+				AF70154122C42F97009D35F6 /* keychain */,
+			);
+			name = res;
+			path = src/keyChainDAT/res;
+			sourceTree = "<group>";
+		};
+		AF70154122C42F97009D35F6 /* keychain */ = {
+			isa = PBXGroup;
+			children = (
+				AF70154222C42F97009D35F6 /* pib.db */,
+				AF70154322C42F97009D35F6 /* ndnsec-key-file */,
+			);
+			path = keychain;
+			sourceTree = "<group>";
+		};
+		AF70154322C42F97009D35F6 /* ndnsec-key-file */ = {
+			isa = PBXGroup;
+			children = (
+				AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */,
+			);
+			path = "ndnsec-key-file";
+			sourceTree = "<group>";
+		};
 		AFB405F422C2B6D30036C08A /* contrib */ = {
 			isa = PBXGroup;
 			children = (
@@ -168,6 +253,7 @@
 				E227271121B6EE9A00905532 /* touchNDN */,
 				E227271021B6EE9A00905532 /* Products */,
 				AF5A951222B46D3100662FAD /* Frameworks */,
+				AF70153C22C42EE9009D35F6 /* faceDAT copy-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -175,6 +261,7 @@
 			isa = PBXGroup;
 			children = (
 				E227270F21B6EE9A00905532 /* faceDAT.plugin */,
+				AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -195,6 +282,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AF70152A22C42EE8009D35F6 /* keyChainDAT */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF70153822C42EE8009D35F6 /* Build configuration list for PBXNativeTarget "keyChainDAT" */;
+			buildPhases = (
+				AF70152B22C42EE8009D35F6 /* Sources */,
+				AF70153122C42EE8009D35F6 /* Frameworks */,
+				AF70153422C42EE8009D35F6 /* Resources */,
+				AF70154922C42FCB009D35F6 /* CopyFiles */,
+				AF70154A22C42FD2009D35F6 /* CopyFiles */,
+				AF70153622C42EE8009D35F6 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = keyChainDAT;
+			productName = CPlusPlusDATExample;
+			productReference = AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
 		E227270E21B6EE9A00905532 /* faceDAT */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E227271521B6EE9A00905532 /* Build configuration list for PBXNativeTarget "faceDAT" */;
@@ -240,11 +347,21 @@
 			projectRoot = "";
 			targets = (
 				E227270E21B6EE9A00905532 /* faceDAT */,
+				AF70152A22C42EE8009D35F6 /* keyChainDAT */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		AF70153422C42EE8009D35F6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF70154522C42F97009D35F6 /* touchdesigner.cert in Resources */,
+				AF70154622C42F97009D35F6 /* policy.conf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E227270D21B6EE9A00905532 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -256,6 +373,17 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AF70152B22C42EE8009D35F6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF70152C22C42EE8009D35F6 /* baseDAT.cpp in Sources */,
+				AF70152D22C42EE8009D35F6 /* baseOP.cpp in Sources */,
+				AF70152F22C42EE8009D35F6 /* apr_base64.c in Sources */,
+				AF70153D22C42F07009D35F6 /* keyChainDAT.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E227270B21B6EE9A00905532 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -271,6 +399,32 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		AF70153922C42EE8009D35F6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "faceDAT copy-Info.plist";
+				INSTALL_PATH = /;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.keyChainDAT;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Debug;
+		};
+		AF70153A22C42EE8009D35F6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "faceDAT copy-Info.plist";
+				INSTALL_PATH = /;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.keyChainDAT;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Release;
+		};
 		E227271321B6EE9A00905532 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -421,7 +575,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				INSTALL_PATH = /;
-				PRODUCT_BUNDLE_IDENTIFIER = ca.derivative.cpp.CPlusPlusDATExample;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.faceDAT;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -434,7 +588,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				INSTALL_PATH = /;
-				PRODUCT_BUNDLE_IDENTIFIER = ca.derivative.cpp.CPlusPlusDATExample;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.faceDAT;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -443,6 +597,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AF70153822C42EE8009D35F6 /* Build configuration list for PBXNativeTarget "keyChainDAT" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF70153922C42EE8009D35F6 /* Debug */,
+				AF70153A22C42EE8009D35F6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E227270A21B6EE9A00905532 /* Build configuration list for PBXProject "touchNDN" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
