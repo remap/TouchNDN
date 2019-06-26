@@ -92,7 +92,7 @@ namespace touch_ndn
         //******************************************************************************
         std::string nfdHost_;
         int32_t lifetime_;
-        bool mustBeFresh_, showHeaders_, showFullName_, showRawStr_;
+        bool mustBeFresh_, showHeaders_, showFullName_, showRawStr_, forceExpress_;
         uint32_t nExpressed_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
         std::set<std::string> currentOutputs_;
@@ -146,6 +146,7 @@ namespace touch_ndn
         void express(std::string prefix, int lifetime, bool mustBeFresh, bool clearTable = false);
         void express(std::shared_ptr<ndn::Interest>&, bool clearTable = false);
         void cancelRequests();
+        void outputRequestsTable(DAT_Output *output);
         
         void setOutputEntry(DAT_Output *output, RequestsDictPair &, int row);
         

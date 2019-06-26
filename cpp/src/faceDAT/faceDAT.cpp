@@ -36,7 +36,11 @@
 #define PAR_NFD_HOST "Nfdhost"
 #define PAR_NFD_HOST_LABEL "NFD Host"
 #define PAR_EXPRESS "Express"
-#define PAR_EXPRESS_LABEL "Express"
+#define PAR_EXPRESS_LABEL "Force Express"
+#define PAR_LIFETIME "Lifetime"
+#define PAR_LIFETIME_LABEL "Interest Lifetime"
+#define PAR_MUSTBEFRESH "Mustbefresh"
+#define PAR_MUSTBEFRESH_LABEL "MustBeFresh"
 
 #define PAR_PAGE_OUTPUT "Output"
 #define PAR_OUT_INTEREST "Interest"
@@ -52,6 +56,10 @@
 #define PAR_OUT_HEADERS "Headers"
 #define PAR_OUT_RAWSTR "Rawstr"
 #define PAR_OUTPUT_DATA "Data"
+
+#define INPUT_COLIDX_NAME 0
+#define INPUT_COLIDX_LIFETIME 1
+#define INPUT_COLIDX_FRESH 2
 
 using namespace std;
 using namespace std::placeholders;
@@ -150,6 +158,7 @@ FaceDAT::FaceDAT(const OP_NodeInfo* info)
 , showHeaders_(true)
 , showFullName_(false)
 , showRawStr_(false)
+, forceExpress_(false)
 {
 //    for (auto p : OutputLabels)
 //        currentOutputs_.insert(p.first);
@@ -165,7 +174,8 @@ FaceDAT::~FaceDAT()
 void
 FaceDAT::getGeneralInfo(DAT_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
 {
-	ginfo->cookEveryFrameIfAsked = true;
+    ginfo->cookEveryFrame = false;
+	ginfo->cookEveryFrameIfAsked = false;
 }
 
 void
@@ -207,7 +217,7 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
 {
     BaseDAT::execute(output, inputs, reserved);
 
-    if (inputs->getNumInputs() > 0)
+    if (inputs->getNumInputs() > 0 && faceProcessor_)
     {
         vector<shared_ptr<Interest>> inputInterests;
         const OP_DATInput    *cinput = inputs->getInputDAT(0);
@@ -220,7 +230,7 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
             string prefix;
             while (getline(ss, prefix))
             {
-                if (prefix != "")
+                if (prefix.size())
                 {
                     shared_ptr<Interest> i = make_shared<Interest>(prefix);
                     i->setInterestLifetimeMilliseconds(lifetime_);
@@ -233,17 +243,33 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
         {
             int numRows = cinput->numRows;
             int numCols = cinput->numCols;
-//            output->setOutputDataType(DAT_OutDataType::Table);
-//            output->setTableSize(numRows, numCols);
-//
-//            for (int i = 0; i < cinput->numRows; i++)
-//            {
-//                for (int j = 0; j < cinput->numCols; j++)
-//                {
-//                    const char* str = cinput->getCell(i, j);
-//                    output->setCellString(i, j, str);
-//                }
-//            }
+            for (int rowIdx = 0; rowIdx < numRows; ++rowIdx)
+            {
+                string prefix(cinput->getCell(rowIdx, INPUT_COLIDX_NAME));
+                int lifetime = lifetime_;
+                bool mustBeFresh = mustBeFresh_;
+                
+                if (INPUT_COLIDX_LIFETIME < numCols)
+                {
+                    string s = cinput->getCell(rowIdx, INPUT_COLIDX_LIFETIME);
+                    if (s.size()) lifetime = stoi(s);
+                }
+                
+                if (INPUT_COLIDX_FRESH < numCols)
+                {
+                    string s = cinput->getCell(rowIdx, INPUT_COLIDX_FRESH);
+                    transform(s.begin(), s.end(), s.begin(), ::tolower);
+                    if (s.size()) mustBeFresh = (s == "true" ? true : false);
+                }
+                
+                if (prefix.size())
+                {
+                    shared_ptr<Interest> i = make_shared<Interest>(prefix);
+                    i->setInterestLifetimeMilliseconds(lifetime);
+                    i->setMustBeFresh(mustBeFresh);
+                    inputInterests.push_back(i);
+                }
+            }
         }
         
         // check if we need to express new interests
@@ -263,44 +289,15 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
             }
         });
         
-        if (flushTable)
+        if (flushTable || forceExpress_)
         {
             cancelRequests();
             express(inputInterests, flushTable);
         }
     }
     
-    if (requestsTable_->dict_.size())
-    {
-        output->setTableSize((int32_t)requestsTable_->dict_.size()+showHeaders_, (int32_t)currentOutputs_.size()+1);
-        
-        // set headers
-        int colIdx = 0;
-        int rowIdx = 0;
-        if (showHeaders_)
-        {
-            for (auto p : OutputsMap)
-                if (currentOutputs_.find(p.second) != currentOutputs_.end())
-                {
-                    string header = OutputLabels.at(p.second);
-                    output->setCellString(0, colIdx, header.c_str());
-                    colIdx++;
-                }
-            output->setCellString(0, colIdx, PAR_OUTPUT_DATA);
-            rowIdx++;
-        }
-        
-        requestsTable_->acquire([output, &rowIdx, this](RequestsDict &d){
-            for (auto p : d)
-                setOutputEntry(output, p, rowIdx++);
-        });
-    }
-    else
-    {
-        output->setOutputDataType(DAT_OutDataType::Text);
-        output->setText("");
-    }
-    
+    outputRequestsTable(output);
+    forceExpress_ = false;
 }
 
 int32_t
@@ -394,6 +391,30 @@ FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
         OP_ParAppendResult res = manager->appendPulse(np);
         assert(res == OP_ParAppendResult::Success);
     }
+    {
+        OP_NumericParameter np(PAR_LIFETIME);
+        
+        np.label = PAR_LIFETIME_LABEL;
+        np.page = PAR_PAGE_DEFAULT;
+        np.defaultValues[0] = lifetime_;
+        np.minValues[0] = 0;
+        np.maxValues[0] = 24*3600*1000;
+        np.minSliders[0] = 0;
+        np.maxSliders[0] = np.maxValues[0];
+        
+        OP_ParAppendResult res = manager->appendInt(np);
+        assert(res == OP_ParAppendResult::Success);
+    }
+    {
+        OP_NumericParameter np(PAR_MUSTBEFRESH);
+        
+        np.label = PAR_MUSTBEFRESH_LABEL;
+        np.page = PAR_PAGE_DEFAULT;
+        np.defaultValues[0] = mustBeFresh_;
+        
+        OP_ParAppendResult res = manager->appendToggle(np);
+        assert(res == OP_ParAppendResult::Success);
+    }
     
     { // outputs page
         for (auto p : OutputLabels)
@@ -419,6 +440,7 @@ FaceDAT::pulsePressed(const char *name, void *reserved1)
     if (strcmp(name, PAR_EXPRESS) == 0)
     {
         // do nothing? since pulse will force cook...
+        forceExpress_ = true;
     }
 }
 
@@ -472,6 +494,8 @@ FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inp
     showHeaders_ = inputs->getParInt(PAR_OUT_HEADERS);
     showFullName_ = inputs->getParInt(PAR_OUT_FULLNAME);
     showRawStr_ = inputs->getParInt(PAR_OUT_RAWSTR);
+    lifetime_ = inputs->getParInt(PAR_LIFETIME);
+    mustBeFresh_ = inputs->getParInt(PAR_MUSTBEFRESH);
 }
 
 void
@@ -537,15 +561,50 @@ FaceDAT::cancelRequests()
 {
     // cancel all pending requests and quit
     shared_ptr<RequestsTable> rt = requestsTable_;
-    faceProcessor_->dispatchSynchronized([rt](shared_ptr<Face> f){
-        rt->acquire([&](RequestsDict &d){
-            for (auto it : d)
-            {
-                f->removePendingInterest(it.second.pitId_);
-                it.second.isCanceled_ = true;
-            }
+    if (faceProcessor_) faceProcessor_->dispatchSynchronized([rt](shared_ptr<Face> f){
+            rt->acquire([&](RequestsDict &d){
+                for (auto it : d)
+                {
+                    f->removePendingInterest(it.second.pitId_);
+                    it.second.isCanceled_ = true;
+                }
+            });
         });
-    });
+}
+
+void
+FaceDAT::outputRequestsTable(DAT_Output *output)
+{
+    if (requestsTable_->dict_.size())
+    {
+        output->setTableSize((int32_t)requestsTable_->dict_.size()+showHeaders_, (int32_t)currentOutputs_.size()+1);
+        
+        // set headers
+        int colIdx = 0;
+        int rowIdx = 0;
+        if (showHeaders_)
+        {
+            for (auto p : OutputsMap)
+                if (currentOutputs_.find(p.second) != currentOutputs_.end())
+                {
+                    string header = OutputLabels.at(p.second);
+                    output->setCellString(0, colIdx, header.c_str());
+                    colIdx++;
+                }
+            output->setCellString(0, colIdx, PAR_OUTPUT_DATA);
+            rowIdx++;
+        }
+        
+        requestsTable_->acquire([output, &rowIdx, this](RequestsDict &d){
+            for (auto p : d)
+                setOutputEntry(output, p, rowIdx++);
+        });
+    }
+    else
+    {
+        output->setOutputDataType(DAT_OutDataType::Text);
+        output->setText("");
+    }
 }
 
 void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
