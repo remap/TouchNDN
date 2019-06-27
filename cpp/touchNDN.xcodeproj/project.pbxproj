@@ -25,6 +25,7 @@
 		AF70154B22C42FDE009D35F6 /* pib.db in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70154222C42F97009D35F6 /* pib.db */; };
 		AF70154C22C431CE009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */; };
 		AF70154D22C43293009D35F6 /* keyChainDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */; };
+		AF70155022C4368A009D35F6 /* foundation-helpers.mm in Sources */ = {isa = PBXBuildFile; fileRef = AF70154F22C4368A009D35F6 /* foundation-helpers.mm */; };
 		AFB405F922C2B6D30036C08A /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AFB405F622C2B6D30036C08A /* LICENSE */; };
 		AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
 /* End PBXBuildFile section */
@@ -99,6 +100,8 @@
 		AF70154022C42F97009D35F6 /* policy.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = policy.conf; sourceTree = "<group>"; };
 		AF70154222C42F97009D35F6 /* pib.db */ = {isa = PBXFileReference; lastKnownFileType = file; path = pib.db; sourceTree = "<group>"; };
 		AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey; sourceTree = "<group>"; };
+		AF70154E22C4368A009D35F6 /* foundation-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "foundation-helpers.h"; path = "src/common/foundation-helpers.h"; sourceTree = "<group>"; };
+		AF70154F22C4368A009D35F6 /* foundation-helpers.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "foundation-helpers.mm"; path = "src/common/foundation-helpers.mm"; sourceTree = "<group>"; };
 		AFB405F622C2B6D30036C08A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		AFB405F722C2B6D30036C08A /* apr_base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = apr_base64.c; sourceTree = "<group>"; };
 		AFB405F822C2B6D30036C08A /* apr_base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = apr_base64.h; sourceTree = "<group>"; };
@@ -131,6 +134,8 @@
 		AF5A94DC22B4437C00662FAD /* common */ = {
 			isa = PBXGroup;
 			children = (
+				AF70154E22C4368A009D35F6 /* foundation-helpers.h */,
+				AF70154F22C4368A009D35F6 /* foundation-helpers.mm */,
 				AFB405F422C2B6D30036C08A /* contrib */,
 				AF5A94F222B4562F00662FAD /* CPlusPlus_Common.h */,
 				AF5A94F422B4562F00662FAD /* DAT_CPlusPlusBase.h */,
@@ -380,6 +385,7 @@
 				AF70152C22C42EE8009D35F6 /* baseDAT.cpp in Sources */,
 				AF70152D22C42EE8009D35F6 /* baseOP.cpp in Sources */,
 				AF70152F22C42EE8009D35F6 /* apr_base64.c in Sources */,
+				AF70155022C4368A009D35F6 /* foundation-helpers.mm in Sources */,
 				AF70153D22C42F07009D35F6 /* keyChainDAT.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
