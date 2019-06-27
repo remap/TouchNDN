@@ -18,63 +18,55 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
-
-#include "DAT_CPlusPlusBase.h"
 #include <string>
 
-/*
- This is a basic sample project to represent the usage of CPlusPlus DAT API.
- To get more help about these functions, look at DAT_CPlusPlusBase.h
-*/
+#include "baseDAT.hpp"
 
-class KeyChainDAT : public DAT_CPlusPlusBase
-{
-public:
-	KeyChainDAT(const OP_NodeInfo* info);
-	virtual ~KeyChainDAT();
+namespace ndn {
+    class KeyChain;
+    class Face;
+}
 
-	virtual void		getGeneralInfo(DAT_GeneralInfo*, const OP_Inputs*, void* reserved1) override;
-
-	virtual void		execute(DAT_Output*,
-								const OP_Inputs*,
-								void* reserved) override;
-
-
-	virtual int32_t		getNumInfoCHOPChans(void* reserved1) override;
-	virtual void		getInfoCHOPChan(int index,
-										OP_InfoCHOPChan* chan, 
-										void* reserved1) override;
-
-	virtual bool		getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
-	virtual void		getInfoDATEntries(int32_t index,
-											int32_t nEntries,
-											OP_InfoDATEntries* entries,
-											void* reserved1) override;
-
-	virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
-	virtual void		pulsePressed(const char* name, void* reserved1) override;
-
-private:
-
-	void				makeTable(DAT_Output* output, int numRows, int numCols);
-	void				makeText(DAT_Output* output);
-
-	// We don't need to store this pointer, but we do for the example.
-	// The OP_NodeInfo class store information about the node that's using
-	// this instance of the class (like its name).
-	const OP_NodeInfo*	myNodeInfo;
-
-	// In this example this value will be incremented each time the execute()
-	// function is called, then passes back to the DAT
-	int32_t				myExecuteCount;
-
-	double				myOffset;
-
-	std::string         myChopChanName;
-	float               myChopChanVal;
-	std::string         myChop;
-
-	std::string         myDat;
-
-
-};
+namespace touch_ndn {
+    class FaceDAT;
+    
+    class KeyChainDAT : public BaseDAT
+    {
+    public:
+        enum class KeyChainType : int32_t {
+            System,
+            File,
+            Memory
+        };
+        
+        KeyChainDAT(const OP_NodeInfo* info);
+        virtual ~KeyChainDAT();
+        
+        virtual void		execute(DAT_Output*,
+                                    const OP_Inputs*,
+                                    void* reserved) override;
+        
+        
+        virtual int32_t		getNumInfoCHOPChans(void* reserved1) override;
+        virtual void		getInfoCHOPChan(int index,
+                                            OP_InfoCHOPChan* chan,
+                                            void* reserved1) override;
+        
+        virtual bool		getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
+        virtual void		getInfoDATEntries(int32_t index,
+                                              int32_t nEntries,
+                                              OP_InfoDATEntries* entries,
+                                              void* reserved1) override;
+        
+        virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
+        virtual void		pulsePressed(const char* name, void* reserved1) override;
+        
+    private:
+        KeyChainType keyChainType_;
+        std::string faceDat_;
+        
+        void initPulsed() override;
+        void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
+        void paramsUpdated(const std::set<std::string>&) override;
+    };
+}

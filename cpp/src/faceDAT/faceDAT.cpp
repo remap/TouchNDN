@@ -172,47 +172,6 @@ FaceDAT::~FaceDAT()
 }
 
 void
-FaceDAT::getGeneralInfo(DAT_GeneralInfo* ginfo, const OP_Inputs* inputs, void* reserved1)
-{
-    ginfo->cookEveryFrame = false;
-	ginfo->cookEveryFrameIfAsked = false;
-}
-
-void
-FaceDAT::makeTable(DAT_Output* output, int numRows, int numCols)
-{
-	output->setOutputDataType(DAT_OutDataType::Table);
-	output->setTableSize(numRows, numCols);
-
-	std::array<const char*, 5> data = { "this", "is", "some", "test", "data"};
-
-	for (int i = 0; i < numRows; i++)
-	{
-		for (int j = 0; j < numCols; j++)
-		{
-			int j2 = j;
-
-			// If we are asked to make more columns than we have data for
-			if (j2 >= data.size())
-				j2 = j2 % data.size();
-
-			output->setCellString(i, j, data[j2]);
-		}
-	}
-}
-
-void
-FaceDAT::makeText(DAT_Output* output)
-{
-	output->setOutputDataType(DAT_OutDataType::Text);
-	output->setText("This is some test data.");
-}
-
-typedef struct _NewRequest {
-    
-} NewRequest;
-
-void
 FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
 {
     BaseDAT::execute(output, inputs, reserved);
@@ -372,64 +331,49 @@ FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
     BaseDAT::setupParameters(manager, reserved1);
     
-	{
-		OP_StringParameter	np(PAR_NFD_HOST);
-
-		np.label = PAR_NFD_HOST_LABEL;
-        np.defaultValue = nfdHost_.c_str();
-        np.page = PAR_PAGE_DEFAULT;
-
-		OP_ParAppendResult res = manager->appendString(np);
-		assert(res == OP_ParAppendResult::Success);
-	}
-    {
-        OP_NumericParameter np(PAR_EXPRESS);
-        
-        np.label = PAR_EXPRESS_LABEL;
-        np.page = PAR_PAGE_DEFAULT;
-        
-        OP_ParAppendResult res = manager->appendPulse(np);
-        assert(res == OP_ParAppendResult::Success);
-    }
-    {
-        OP_NumericParameter np(PAR_LIFETIME);
-        
-        np.label = PAR_LIFETIME_LABEL;
-        np.page = PAR_PAGE_DEFAULT;
-        np.defaultValues[0] = lifetime_;
-        np.minValues[0] = 0;
-        np.maxValues[0] = 24*3600*1000;
-        np.minSliders[0] = 0;
-        np.maxSliders[0] = np.maxValues[0];
-        
-        OP_ParAppendResult res = manager->appendInt(np);
-        assert(res == OP_ParAppendResult::Success);
-    }
-    {
-        OP_NumericParameter np(PAR_MUSTBEFRESH);
-        
-        np.label = PAR_MUSTBEFRESH_LABEL;
-        np.page = PAR_PAGE_DEFAULT;
-        np.defaultValues[0] = mustBeFresh_;
-        
-        OP_ParAppendResult res = manager->appendToggle(np);
-        assert(res == OP_ParAppendResult::Success);
-    }
+    appendPar<OP_StringParameter>
+    (manager, PAR_NFD_HOST, PAR_NFD_HOST_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         p.defaultValue = nfdHost_.c_str();
+         return manager->appendString(p);
+     });
     
-    { // outputs page
-        for (auto p : OutputLabels)
-        {
-            OP_NumericParameter np(p.first.c_str());
-            np.page = PAR_PAGE_OUTPUT;
+    appendPar<OP_NumericParameter>
+    (manager, PAR_EXPRESS, PAR_EXPRESS_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         return manager->appendPulse(p);
+     });
+    
+    appendPar<OP_NumericParameter>
+    (manager, PAR_LIFETIME, PAR_LIFETIME_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.defaultValues[0] = lifetime_;
+         p.minValues[0] = 0;
+         p.maxValues[0] = 24*3600*1000;
+         p.minSliders[0] = 0;
+         p.maxSliders[0] = p.maxValues[0];
+         
+         return manager->appendInt(p);
+     });
+    
+    appendPar<OP_NumericParameter>
+    (manager, PAR_MUSTBEFRESH, PAR_LIFETIME_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.defaultValues[0] = mustBeFresh_;
+         
+         return manager->appendToggle(p);
+     });
+    
+    // outputs page
+    for (auto p : OutputLabels)
         
-            bool enabled = (currentOutputs_.find(np.name) != currentOutputs_.end() ? true : false);
-            np.defaultValues[0] = enabled;
-            np.label = OutputLabels.at(np.name).c_str();
-            
-            OP_ParAppendResult res = manager->appendToggle(np);
-            assert(res == OP_ParAppendResult::Success);
-        }
-    }
+        appendPar<OP_NumericParameter>
+        (manager, p.first, OutputLabels.at(p.first), PAR_PAGE_OUTPUT,
+         [&](OP_NumericParameter &p){
+             bool enabled = (currentOutputs_.find(p.name) != currentOutputs_.end() ? true : false);
+             p.defaultValues[0] = enabled;
+             return manager->appendToggle(p);
+         });
 }
 
 void

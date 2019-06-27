@@ -59,8 +59,6 @@ namespace touch_ndn
         FaceDAT(const OP_NodeInfo* info);
         virtual ~FaceDAT();
         
-        virtual void		getGeneralInfo(DAT_GeneralInfo*, const OP_Inputs*, void* reserved1) override;
-        
         virtual void		execute(DAT_Output*, const OP_Inputs*, void* reserved) override;
         
         
@@ -82,14 +80,6 @@ namespace touch_ndn
         { return faceProcessor_; }
         
     private:
-        
-        const OP_NodeInfo*	myNodeInfo;
-        
-        void                makeTable(DAT_Output* output, int numRows, int numCols);
-        void                makeText(DAT_Output* output);
-        
-        
-        //******************************************************************************
         std::string nfdHost_;
         int32_t lifetime_;
         bool mustBeFresh_, showHeaders_, showFullName_, showRawStr_, forceExpress_;

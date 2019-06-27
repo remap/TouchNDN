@@ -214,6 +214,17 @@ namespace touch_ndn {
             va_end(args);
         }
         
+        template<class ParameterClass>
+        void appendPar(OP_ParameterManager* manager,
+                       std::string name, std::string label, std::string page,
+                       std::function<OP_ParAppendResult(ParameterClass&)> appendCode)
+        {
+            ParameterClass p(name.c_str());
+            p.label = label.c_str();
+            p.page = page.c_str();
+            assert(OP_ParAppendResult::Success == appendCode(p));
+        }
+        
     private:
         void setString(std::string &string, const char* format, va_list args)
         {
