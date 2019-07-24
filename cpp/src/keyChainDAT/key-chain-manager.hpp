@@ -38,7 +38,6 @@ namespace touch_ndn
 {
 namespace helpers
 {
-
     class KeyChainManager {
     public:
         KeyChainManager(std::shared_ptr<ndn::KeyChain> keyChain,
@@ -63,8 +62,8 @@ namespace helpers
         // Does not re-publbish certificates.
         void publishCertificates();
         
-//        std::shared_ptr<ndn::MemoryContentCache> memoryContentCache() const
-//        { return memoryContentCache_; }
+        std::string getSigningIdentity() const { return signingIdentity_; }
+        std::string getInstanceIdentity() const { return instanceIdentity_; }
         
         // Creates a KeyChain. Depending on provided argument, either system default
         // key chain will be created or file-based keychain will be created.
@@ -76,7 +75,6 @@ namespace helpers
         static std::shared_ptr<ndn::KeyChain> createKeyChain(std::string storagePath);
         
     private:
-//        std::shared_ptr<ndn::Face> face_;
         std::string signingIdentity_, instanceName_,
         configPolicy_, instanceIdentity_;
         unsigned int runTime_;
@@ -86,7 +84,6 @@ namespace helpers
         std::shared_ptr<ndn::Data> instanceCert_, signingCert_;
         std::shared_ptr<ndn::IdentityStorage> identityStorage_;
         std::shared_ptr<ndn::PrivateKeyStorage> privateKeyStorage_;
-//        std::shared_ptr<ndn::MemoryContentCache> memoryContentCache_;
         
         void setupDefaultKeyChain();
         void setupInstanceKeyChain();
@@ -95,7 +92,6 @@ namespace helpers
         void createMemoryKeychain();
         void createInstanceIdentity();
         void createInstanceIdentityV2();
-//        void registerPrefix(const ndn::Name& prefix);
         void checkExists(const std::string&);
     };
 

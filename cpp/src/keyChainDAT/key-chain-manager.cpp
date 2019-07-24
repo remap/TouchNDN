@@ -112,26 +112,6 @@ runTime_(instanceCertLifetime)
 	setupInstanceKeyChain();
 }
 
-//void KeyChainManager::publishCertificates()
-//{
-//    memoryContentCache_ = make_shared<MemoryContentCache>(face_.get());
-//
-//    { // registering prefix for serving signing identity: <signing-identity>/KEY
-//        Name prefix(signingIdentity_);
-//        prefix.append("KEY");
-//        registerPrefix(prefix);
-//    }
-//
-//    { // registering prefix for serving instance identity: <instance-identity>/KEY
-//        Name prefix(signingIdentity_);
-//        prefix.append(instanceName_).append("KEY");
-//        registerPrefix(prefix);
-//    }
-//
-//    memoryContentCache_->add(*(this->signingIdentityCertificate()));
-//    memoryContentCache_->add(*(this->instanceCertificate()));
-//}
-
 //******************************************************************************
 void KeyChainManager::setupDefaultKeyChain()
 {
@@ -169,8 +149,6 @@ void KeyChainManager::setupInstanceKeyChain()
 				->getKey(CertificateV2::extractKeyNameFromCertName(certName))
     			->getCertificate(certName);
 	}
-
-//    face_->setCommandSigningInfo(*defaultKeyChain_, signingCert_->getName());
 
 	createMemoryKeychain();
 	if (defaultKeyChain_->getIsSecurityV1())
@@ -212,9 +190,6 @@ void KeyChainManager::createMemoryKeychain()
     else
         instanceKeyChain_ = make_shared<KeyChain>(make_shared<PibMemory>(), make_shared<TpmBackEndMemory>(),
                                                          configPolicyManager_);
-
-    // TODO: setup face
-//    instanceKeyChain_->setFace(face_.get());
 }
 
 void KeyChainManager::createInstanceIdentity()
@@ -302,28 +277,6 @@ void KeyChainManager::createInstanceIdentityV2()
 		<< instanceKeyChain_->getPib().getIdentity(Name(instanceIdentity_))
           ->getDefaultKey()->getDefaultCertificate()->getName() << endl;
 }
-
-//void KeyChainManager::registerPrefix(const Name& prefix)
-//{
-//    shared_ptr<MemoryContentCache> memCache = memoryContentCache_;
-//    shared_ptr<ndnlog::new_api::Logger> logger = logger_;
-//
-//    memoryContentCache_->registerPrefix(prefix,
-//        [logger](const shared_ptr<const Name> &p){
-//            cout << "Prefix registration failure: " << p->toUri() << endl;
-//        },
-//        [logger](const shared_ptr<const Name>& p, uint64_t id){
-//            cout << "Prefix registration success: " << p->toUri() << endl;
-//        },
-//        [logger, memCache](const shared_ptr<const Name>& p,
-//            const shared_ptr<const Interest> &i,
-//            Face& f, uint64_t, const shared_ptr<const InterestFilter>&){
-//            cout << "Unexpected interest received " << i->getName()
-//            << endl;
-//
-//            memCache->storePendingInterest(i, f);
-//        });
-//}
 
 void KeyChainManager::checkExists(const string& file)
 {

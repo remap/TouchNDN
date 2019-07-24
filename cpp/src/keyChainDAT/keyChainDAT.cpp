@@ -26,6 +26,7 @@
 #include <assert.h>
 #include <array>
 #include <map>
+#include <ndn-cpp/data.hpp>
 
 #include "faceDAT.h"
 #include "touchNDN-shared.hpp"
@@ -90,16 +91,47 @@ KeyChainDAT::getInfoCHOPChan(int32_t index,
 bool
 KeyChainDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
-    return BaseDAT::getInfoDATSize(infoSize, reserved1);
+     BaseDAT::getInfoDATSize(infoSize, reserved1);
+    
+    if (keyChainManager_)
+    {
+        infoSize->rows += 4;
+        infoSize->cols = 2;
+    }
+    infoSize->byColumn = false;
+    
+    return true;
 }
 
 void
-KeyChainDAT::getInfoDATEntries(int32_t index,
-									int32_t nEntries,
-									OP_InfoDATEntries* entries,
-									void* reserved1)
+KeyChainDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
+                               void* reserved1)
 {
-    BaseDAT::getInfoDATEntries(index, nEntries, entries, reserved1);
+    if (index < 4)
+    {
+        switch (index) {
+            case 0:
+                entries->values[0]->setString("Signing Identity");
+                entries->values[1]->setString(keyChainManager_->getSigningIdentity().c_str());
+                break;
+            case 1:
+                entries->values[0]->setString("Signing Identity Certificate");
+                entries->values[1]->setString(keyChainManager_->signingIdentityCertificate()->getName().toUri().c_str());
+                break;
+            case 2:
+                entries->values[0]->setString("Instance Identity");
+                entries->values[1]->setString(keyChainManager_->getInstanceIdentity().c_str());
+                break;
+            case 3:
+                entries->values[0]->setString("Instance Identity Certificate");
+                entries->values[1]->setString(keyChainManager_->instanceCertificate()->getName().toUri().c_str());
+                break;
+            default:
+                break;
+        }
+    }
+    else
+        BaseDAT::getInfoDATEntries(index-4, nEntries, entries, reserved1);
 }
 
 void
