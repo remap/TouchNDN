@@ -30,8 +30,12 @@
 
 #include <ndn-cpp/face.hpp>
 #include <ndn-cpp/key-locator.hpp>
+#include <ndn-cpp/security/key-chain.hpp>
 
 #include "face-processor.hpp"
+#include "touchNDN-shared.hpp"
+#include "keyChainDAT.h"
+#include "key-chain-manager.hpp"
 
 #define PAR_NFD_HOST "Nfdhost"
 #define PAR_NFD_HOST_LABEL "NFD Host"
@@ -56,6 +60,9 @@
 #define PAR_OUT_HEADERS "Headers"
 #define PAR_OUT_RAWSTR "Rawstr"
 #define PAR_OUTPUT_DATA "Data"
+
+#define PAR_KEYCHAIN_DAT "Keychaindat"
+#define PAR_KEYCHAIN_DAT_LABEL "KeyChain DAT"
 
 #define INPUT_COLIDX_NAME 0
 #define INPUT_COLIDX_LIFETIME 1
@@ -159,6 +166,10 @@ FaceDAT::FaceDAT(const OP_NodeInfo* info)
 , showFullName_(false)
 , showRawStr_(false)
 , forceExpress_(false)
+, instanceCertRegId_(0)
+, signingCertRegId_(0)
+, keyChainDat_("")
+, keyChainDatOp_(nullptr)
 {
 //    for (auto p : OutputLabels)
 //        currentOutputs_.insert(p.first);
@@ -169,6 +180,8 @@ FaceDAT::FaceDAT(const OP_NodeInfo* info)
 FaceDAT::~FaceDAT()
 {
     cancelRequests();
+    clearKeyChainPairing(nullptr, nullptr, nullptr);
+    doCleanup();
 }
 
 void
@@ -211,7 +224,13 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
                 if (INPUT_COLIDX_LIFETIME < numCols)
                 {
                     string s = cinput->getCell(rowIdx, INPUT_COLIDX_LIFETIME);
-                    if (s.size()) lifetime = stoi(s);
+                    try {
+                        if (s.size()) lifetime = stoi(s);
+                    }
+                    catch (std::exception &e)
+                    {
+                        cout << "Exception " << e.what() << endl;
+                    }
                 }
                 
                 if (INPUT_COLIDX_FRESH < numCols)
@@ -309,21 +328,41 @@ FaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
     BaseDAT::getInfoDATSize(infoSize, reserved1);
     
-	infoSize->rows += 0;
-	infoSize->cols += 0;
-	// Setting this to false means we'll be assigning values to the table
-	// one row at a time. True means we'll do it one column at a time.
+    infoSize->rows += (keyChainDatOp_ ? 1 : 0);
+	infoSize->rows += registeredPrefixes_.size();
+    
+	infoSize->cols = 2;
 	infoSize->byColumn = false;
 	return true;
 }
 
 void
-FaceDAT::getInfoDATEntries(int32_t index,
-									int32_t nEntries,
-									OP_InfoDATEntries* entries,
-									void* reserved1)
+FaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
+                           void* reserved1)
 {
-    BaseDAT::getInfoDATEntries(index, nEntries, entries, reserved1);
+    size_t nRows = registeredPrefixes_.size() + (keyChainDatOp_ ? 1 : 0);
+    
+    if (index < nRows)
+    {
+        if (keyChainDatOp_ && index == 0)
+        {
+            entries->values[0]->setString("KeyChainDAT");
+            entries->values[1]->setString(keyChainDat_.c_str());
+        }
+        else
+        {
+            if (keyChainDatOp_) index -= 1;
+            
+            map<uint64_t, string>::iterator it = registeredPrefixes_.begin();
+            advance(it, index);
+            stringstream ss;
+            ss << "Registered " << index;
+            entries->values[0]->setString(ss.str().c_str());
+            entries->values[1]->setString(it->second.c_str());
+        }
+    }
+    else
+        BaseDAT::getInfoDATEntries((int32_t)(index - nRows), nEntries, entries, reserved1);
 }
 
 void
@@ -364,6 +403,12 @@ FaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
          return manager->appendToggle(p);
      });
     
+    appendPar<OP_StringParameter>
+    (manager, PAR_KEYCHAIN_DAT, PAR_KEYCHAIN_DAT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         return manager->appendDAT(p);
+    });
+    
     // outputs page
     for (auto p : OutputLabels)
         
@@ -395,8 +440,11 @@ FaceDAT::initPulsed()
 }
 
 void
-FaceDAT::initFace(DAT_Output*, const OP_Inputs* inputs, void* reserved)
+FaceDAT::initFace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
 {
+    if (keyChainDatOp_)
+        clearKeyChainPairing(output, inputs, reserved);
+    
     faceProcessor_.reset();
     
     try
@@ -428,6 +476,23 @@ FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inp
         nfdHost_ = string(inputs->getParString(PAR_NFD_HOST));
     }
     
+    if (faceProcessor_)
+    {
+        string s = inputs->getParString(PAR_KEYCHAIN_DAT);
+        string canonicalPath;
+        
+        if (s[0] == '/') // if first symbol is "/" -- assume absolute path
+            canonicalPath = helpers::canonical(s);
+        else if (s.size() > 0) // otherwise -- relative to current OP's path
+            canonicalPath = helpers::canonical(opPath_ + s);
+        
+        if (keyChainDat_ != canonicalPath)
+        {
+            keyChainDat_ = canonicalPath;
+            paramNames.insert(PAR_KEYCHAIN_DAT);
+        }
+    }
+    
     currentOutputs_.clear();
     for (auto p : OutputsMap)
     {
@@ -448,6 +513,14 @@ FaceDAT::paramsUpdated(const std::set<std::string> &updatedParams)
     if (updatedParams.find(PAR_NFD_HOST) != updatedParams.end())
     {
         dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
+    }
+    
+    if (updatedParams.find(PAR_KEYCHAIN_DAT) != updatedParams.end())
+    {
+        // clear up existing keychain, if set up
+        if (keyChainDatOp_)
+            dispatchOnExecute(bind(&FaceDAT::clearKeyChainPairing, this, _1, _2, _3));
+        dispatchOnExecute(bind(&FaceDAT::setupKeyChainPairing, this, _1, _2, _3));
     }
 }
 
@@ -629,6 +702,126 @@ void FaceDAT::setOutputEntry(DAT_Output *output, RequestsDictPair &p, int row)
     }
     else
         output->setCellString(row, colIdx, "");
+}
+
+void FaceDAT::setupKeyChainPairing(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
+{
+    int err = 1;
+    void *keyChainDatOp;
+    
+    if (keyChainDat_ == "")
+    {
+        err = 0;
+        clearKeyChainPairing(output, inputs, reserved);
+        keyChainDatOp_ = nullptr;
+        clearError();
+    }
+    else if ((keyChainDatOp = retrieveOp(keyChainDat_)))
+        {
+            keyChainDatOp_ = dynamic_cast<KeyChainDAT*>((BaseDAT*)keyChainDatOp);
+        
+            err = (keyChainDatOp_ ? 0 : 1);
+            
+            if (keyChainDatOp_ && keyChainDatOp_->getKeyChainManager())
+            {
+                clearError();
+                // watch keychain operator events
+                keyChainDatOp_->subscribe(this);
+                
+                shared_ptr<helpers::KeyChainManager> kcm = keyChainDatOp_->getKeyChainManager();
+                // set command signging info
+                // TODO: is it safe to capture this here?
+                faceProcessor_->dispatchSynchronized([kcm, this](shared_ptr<Face> face){
+                    face->setCommandSigningInfo(*kcm->instanceKeyChain(),
+                                                kcm->instanceKeyChain()->getDefaultCertificateName());
+                    kcm->instanceKeyChain()->setFace(face.get());
+                    registerCertPrefixes(face, kcm);
+                });
+            }
+        }
+    
+    if (err)
+        setError("Couldn't find KeyChainDAT: %s", keyChainDat_.c_str());
+}
+
+void FaceDAT::clearKeyChainPairing(DAT_Output *, const OP_Inputs *, void *reserved)
+{
+    if (keyChainDatOp_)
+    {
+        shared_ptr<helpers::KeyChainManager> kcm = keyChainDatOp_->getKeyChainManager();
+        uint64_t signingCertRegId = signingCertRegId_;
+        uint64_t instanceCertRegId = instanceCertRegId_;
+        faceProcessor_->dispatchSynchronized([signingCertRegId, instanceCertRegId, kcm](shared_ptr<Face> face){
+            face->removeRegisteredPrefix(signingCertRegId);
+            if (instanceCertRegId != signingCertRegId)
+                face->removeRegisteredPrefix(instanceCertRegId);
+
+            // clear KeyChain's Face
+            kcm->instanceKeyChain()->setFace(nullptr);
+            // clear Face's keychain
+            face->setCommandSigningInfo(*(KeyChain*)0, Name());
+        });
+        
+        registeredPrefixes_.erase(signingCertRegId_);
+        registeredPrefixes_.erase(instanceCertRegId_);
+        signingCertRegId_ = 0;
+        instanceCertRegId_ = 0;
+        keyChainDat_ = "";
+        keyChainDatOp_ = nullptr;
+    }
+}
+
+void FaceDAT::registerCertPrefixes(std::shared_ptr<ndn::Face> face, std::shared_ptr<helpers::KeyChainManager> kcm)
+{
+    shared_ptr<Data> signingCert = kcm->signingIdentityCertificate();
+    shared_ptr<Data> instanceCert = kcm->instanceCertificate();
+    OnInterestCallback onCertInterest = [signingCert, instanceCert]
+            (const shared_ptr<const Name>&,
+             const shared_ptr<const Interest> &i,
+             Face& f, uint64_t,
+             const shared_ptr<const InterestFilter>&)
+            {
+                if (i->getName().match(signingCert->getName()))
+                    f.putData(*signingCert);
+                if (i->getName().match(instanceCert->getName()))
+                    f.putData(*instanceCert);
+            };
+    OnRegisterFailed onRegisterFailed = [this](const shared_ptr<const Name>& n){
+        this->setError("Failed to register prefix: %s", n->toUri().c_str());
+    };
+    OnRegisterSuccess onRegisterSuccess = [this](const shared_ptr<const Name>&n, uint64_t id){
+        cout << "Registered prefix " << n->toUri() << endl;
+        this->registeredPrefixes_[id] = n->toUri();
+    };
+    
+    signingCertRegId_ = face->registerPrefix(signingCert->getName(), onCertInterest, onRegisterFailed, onRegisterSuccess);
+    
+    if (!signingCert->getName().isPrefixOf(instanceCert->getName()))
+        instanceCertRegId_ = face->registerPrefix(instanceCert->getName(), onCertInterest, onRegisterFailed, onRegisterSuccess);
+    else
+        instanceCertRegId_ = signingCertRegId_;
+}
+
+void FaceDAT::doCleanup()
+{
+    // remove all registered prefixes
+    for (auto it:registeredPrefixes_)
+        faceProcessor_->dispatchSynchronized([it](shared_ptr<Face> face){
+            face->removeRegisteredPrefix(it.first);
+        });
+    // unregister from KeyChainDAT
+    if (keyChainDatOp_)
+        keyChainDatOp_->unsubscribe(this);
+    
+}
+
+void FaceDAT::onOpUpdate(OP_Common *op, const std::string& event)
+{
+    if (op == keyChainDatOp_)
+    {
+        if (event == OP_EVENT_DESTROY)
+            clearKeyChainPairing(nullptr, nullptr, nullptr);
+    }
 }
 
 //******************************************************************************

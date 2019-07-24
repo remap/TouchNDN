@@ -27,76 +27,39 @@
 #include <array>
 #include <map>
 
-#define PAR_KEYCHAIN_MENU_SIZE 3
+#include "faceDAT.h"
+#include "touchNDN-shared.hpp"
+#include "key-chain-manager.hpp"
+#include "foundation-helpers.h"
+
 #define PAR_KEYCHAIN_MENU "Keychainmenu"
 #define PAR_KEYCHAIN_MENU_LABEL "KeyChain Type"
 #define PAR_KEYCHAIN_TYPE_SYSTEM "Keychainsystem"
 #define PAR_KEYCHAIN_TYPE_FILE "Keychainfile"
-#define PAR_KEYCHAIN_TYPE_MEMORY "Keychainmem"
+#define PAR_KEYCHAIN_TYPE_EMBED "Keychainembed"
 #define PAR_KEYCHAIN_TYPE_SYSTEM_LABEL "System"
 #define PAR_KEYCHAIN_TYPE_FILE_LABEL "File"
-#define PAR_KEYCHAIN_TYPE_MEMORY_LABEL "Memory"
+#define PAR_KEYCHAIN_TYPE_EMBED_LABEL "Embedded"
 
-#define PAR_FACE_DAT "Facedat"
-#define PAR_FACE_DAT_LABEL "Face DAT"
-
-using namespace touch_ndn;
 using namespace std;
+using namespace std::placeholders;
 using namespace ndn;
-
-// These functions are basic C function, which the DLL loader can find
-// much easier than finding a C++ Class.
-// The DLLEXPORT prefix is needed so the compile exports these functions from the .dll
-// you are creating
-extern "C"
-{
-
-DLLEXPORT
-void
-FillDATPluginInfo(DAT_PluginInfo *info)
-{
-	info->apiVersion = DATCPlusPlusAPIVersion;
-	info->customOPInfo.opType->setString("Touchndnkeychain");
-	info->customOPInfo.opLabel->setString("KeyChain DAT");
-	info->customOPInfo.opIcon->setString("KDT");
-	info->customOPInfo.authorName->setString("Peter Gusev");
-	info->customOPInfo.authorEmail->setString("peter@remap.ucla.edu");
-	info->customOPInfo.minInputs = 0;
-	info->customOPInfo.maxInputs = 1;
-}
-
-DLLEXPORT
-DAT_CPlusPlusBase*
-CreateDATInstance(const OP_NodeInfo* info)
-{
-	return new KeyChainDAT(info);
-}
-
-DLLEXPORT
-void
-DestroyDATInstance(DAT_CPlusPlusBase* instance)
-{
-	// Delete the instance here, this will be called when
-	// Touch is shutting down, when the DAT using that instance is deleted, or
-	// if the DAT loads a different DLL
-	delete (KeyChainDAT*)instance;
-}
-
-};
+using namespace touch_ndn;
+using namespace touch_ndn::helpers;
 
 //******************************************************************************
 const map<string, KeyChainDAT::KeyChainType> KeyChainTypeMap = {
     { PAR_KEYCHAIN_TYPE_SYSTEM, KeyChainDAT::KeyChainType::System },
     { PAR_KEYCHAIN_TYPE_FILE, KeyChainDAT::KeyChainType::File },
-    { PAR_KEYCHAIN_TYPE_MEMORY, KeyChainDAT::KeyChainType::Memory }
+    { PAR_KEYCHAIN_TYPE_EMBED, KeyChainDAT::KeyChainType::Embedded }
 };
 
 //******************************************************************************
 KeyChainDAT::KeyChainDAT(const OP_NodeInfo* info)
 : BaseDAT(info)
-, keyChainType_(KeyChainType::File)
-, faceDat_("face")
+, keyChainType_(KeyChainType::Embedded)
 {
+    dispatchOnExecute(bind(&KeyChainDAT::initKeyChain, this, _1, _2, _3));
 }
 
 KeyChainDAT::~KeyChainDAT()
@@ -144,8 +107,13 @@ KeyChainDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
     BaseDAT::setupParameters(manager, reserved1);
     
-    static const char *names[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_FILE, PAR_KEYCHAIN_TYPE_SYSTEM, PAR_KEYCHAIN_TYPE_MEMORY};
-    static const char *labels[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_FILE_LABEL, PAR_KEYCHAIN_TYPE_SYSTEM_LABEL, PAR_KEYCHAIN_TYPE_MEMORY_LABEL};
+#define PAR_KEYCHAIN_MENU_SIZE 2
+    static const char *names[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_EMBED,
+                                                        //PAR_KEYCHAIN_TYPE_FILE,
+                                                        PAR_KEYCHAIN_TYPE_SYSTEM};
+    static const char *labels[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_EMBED_LABEL,
+                                                         //PAR_KEYCHAIN_TYPE_FILE_LABEL,
+                                                         PAR_KEYCHAIN_TYPE_SYSTEM_LABEL};
     
     appendPar<OP_StringParameter>
     (manager, PAR_KEYCHAIN_MENU, PAR_KEYCHAIN_MENU_LABEL, PAR_PAGE_DEFAULT,
@@ -161,12 +129,6 @@ KeyChainDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
          p.defaultValue = defaultValue.c_str();
          
          return manager->appendMenu(p, PAR_KEYCHAIN_MENU_SIZE, names, labels);
-     });
-    
-    appendPar<OP_StringParameter>
-    (manager, PAR_FACE_DAT, PAR_FACE_DAT_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         return manager->appendDAT(p);
      });
 }
 
@@ -190,22 +152,11 @@ KeyChainDAT::checkInputs(set<string> &paramNames, DAT_Output *, const OP_Inputs 
     
         if (keyChainType_ != t)
         {
-            t = keyChainType_;
+            keyChainType_ = t;
             paramNames.insert(PAR_KEYCHAIN_MENU);
         }
     }
-    
-    {
-        string s = inputs->getParString(PAR_FACE_DAT);
-        
-        if (faceDat_ != s)
-        {
-            faceDat_ = s;
-            paramNames.insert(PAR_FACE_DAT);
-        }
-    }
 }
-
 
 void
 KeyChainDAT::paramsUpdated(const set<string> &updatedParams)
@@ -213,10 +164,30 @@ KeyChainDAT::paramsUpdated(const set<string> &updatedParams)
     if (updatedParams.find(PAR_KEYCHAIN_MENU) != updatedParams.end())
     {
         // re-init keychain
+        dispatchOnExecute(bind(&KeyChainDAT::initKeyChain, this, _1, _2, _3));
     }
-    
-    if (updatedParams.find(PAR_FACE_DAT) != updatedParams.end())
+}
+
+void
+KeyChainDAT::initKeyChain(DAT_Output *, const OP_Inputs *, void *reserved)
+{
+    if (keyChainType_ == KeyChainType::Embedded)
     {
-        // re-configure face
+        string signingIdentity = "/touchdesigner";
+        string policyFilePath = string(get_resources_path())+"/policy.conf";
+        string keyChainPath = string(get_resources_path())+"/keychain";
+        string instanceName = string(generate_uuid());
+        
+        keyChainManager_ = make_shared<KeyChainManager>(KeyChainManager::createKeyChain(keyChainPath),
+                                                        signingIdentity,
+                                                        instanceName,
+                                                        policyFilePath,
+                                                        6*3600);
     }
+}
+
+void
+KeyChainDAT::onOpUpdate(OP_Common *op, const std::string &event)
+{
+
 }

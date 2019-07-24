@@ -10,5 +10,6 @@
 #define foundation_helpers_h
 
 const char* get_resources_path();
+const char* generate_uuid();
 
 #endif /* foundation_helpers_h */

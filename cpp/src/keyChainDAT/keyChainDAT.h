@@ -28,7 +28,10 @@ namespace ndn {
 }
 
 namespace touch_ndn {
-    class FaceDAT;
+    
+    namespace helpers {
+        class KeyChainManager;
+    }
     
     class KeyChainDAT : public BaseDAT
     {
@@ -36,7 +39,7 @@ namespace touch_ndn {
         enum class KeyChainType : int32_t {
             System,
             File,
-            Memory
+            Embedded
         };
         
         KeyChainDAT(const OP_NodeInfo* info);
@@ -61,12 +64,18 @@ namespace touch_ndn {
         virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
         virtual void		pulsePressed(const char* name, void* reserved1) override;
         
+        std::shared_ptr<helpers::KeyChainManager> getKeyChainManager() { return keyChainManager_; }
+        
     private:
         KeyChainType keyChainType_;
-        std::string faceDat_;
+        std::shared_ptr<helpers::KeyChainManager> keyChainManager_;
+        
+        void onOpUpdate(OP_Common*, const std::string&);
         
         void initPulsed() override;
         void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
         void paramsUpdated(const std::set<std::string>&) override;
+        
+        void initKeyChain(DAT_Output*, const OP_Inputs*, void* reserved);
     };
 }

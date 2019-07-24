@@ -32,13 +32,16 @@ namespace ndn {
     class Data;
     class Interest;
     class NetworkNack;
+    class KeyChain;
 }
 
 namespace touch_ndn
 {
+    class KeyChainDAT;
     
     namespace helpers {
         class FaceProcessor;
+        class KeyChainManager;
     }
     
     class FaceDAT : public BaseDAT
@@ -86,6 +89,10 @@ namespace touch_ndn
         uint32_t nExpressed_;
         std::shared_ptr<helpers::FaceProcessor> faceProcessor_;
         std::set<std::string> currentOutputs_;
+        std::string keyChainDat_;
+        KeyChainDAT *keyChainDatOp_;
+        std::map<uint64_t, std::string> registeredPrefixes_;
+        uint64_t signingCertRegId_, instanceCertRegId_;
         
         typedef struct _RequestStatus {
             _RequestStatus(): isTimeout_(false), isCanceled_(false), pitId_(0),
@@ -127,6 +134,8 @@ namespace touch_ndn
         } RequestsTable;
         std::shared_ptr<RequestsTable> requestsTable_;
       
+        void onOpUpdate(OP_Common*, const std::string&) override;
+        
         void initPulsed() override;
         void initFace(DAT_Output*, const OP_Inputs*, void* reserved);
         void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
@@ -139,8 +148,12 @@ namespace touch_ndn
         void outputRequestsTable(DAT_Output *output);
         
         void setOutputEntry(DAT_Output *output, RequestsDictPair &, int row);
+
+        void setupKeyChainPairing(DAT_Output*, const OP_Inputs*, void* reserved);
+        void clearKeyChainPairing(DAT_Output*, const OP_Inputs*, void* reserved);
+        void registerCertPrefixes(std::shared_ptr<ndn::Face>, std::shared_ptr<helpers::KeyChainManager>);
         
-      
+        void doCleanup();
     };
     
 }

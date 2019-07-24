@@ -44,3 +44,9 @@ const char* get_resources_path()
     
     return [respath UTF8String];
 }
+
+const char* generate_uuid()
+{
+    NSUUID *uuid = [NSUUID UUID];
+    return [[uuid UUIDString] cStringUsingEncoding:NSASCIIStringEncoding];
+}

@@ -27,12 +27,60 @@
 #include <set>
 
 #include "CPlusPlus_Common.h"
+#include "touchNDN-shared.hpp"
 
 #define PAR_PAGE_DEFAULT "Custom"
 #define PAR_INIT "Init"
 #define PAR_INIT_LABEL "Init"
 
+#define OP_EVENT_DESTROY "destroy"
+
 namespace touch_ndn {
+    
+    namespace helpers {
+        // splits a string into an array of token separated by delim
+        std::vector<std::string> split(const char *str, std::string delim);
+        // canonizes path
+        std::string canonical(std::string path);
+    }
+    
+    /**
+     * This is a helper class for BaseOP which implements some helper functions.
+     */
+    class OP_Common {
+    public:
+        OP_Common();
+        virtual ~OP_Common(){ notifyListeners(OP_EVENT_DESTROY); }
+        
+        void subscribe(OP_Common*);
+        void unsubscribe(OP_Common*);
+        virtual void onOpUpdate(OP_Common*, const std::string& event){}
+        virtual void notifyListeners(const std::string& event);
+        
+    protected:
+        std::vector<OP_Common*> listeners_;
+        std::string opName_, opPath_;
+        std::string errorString_, warningString_, infoString_;
+        
+        // extracts operator path (without name) and operator name from full operator path
+        void extractOpName(std::string opFullPath, std::string &opPath, std::string &opName);
+        
+        // checks, whether "path" corresponds to the current opPath_ and opName_. if not, updates
+        // them and calls opPathUpdated(...)
+        bool opPathChanged(std::string path, std::string& oldPath);
+        
+        // override in subclasses if needed
+        virtual void opPathUpdated(const std::string& oldFullPath,
+                                   const std::string& oldOpPath,
+                                   const std::string& oldOpName) {}
+
+        void clearError();
+        void setError(const char *format, ...);
+        void clearWarning();
+        void setWarning(const char *format, ...);
+        void setInfo(const char *format, ...);
+        void setString(std::string &string, const char* format, va_list args);
+    };
     
     /**
      * BaseOp is a template class that implements helper functions, common
@@ -42,17 +90,19 @@ namespace touch_ndn {
      * parameter.
      */
     template<class OP_Base, class... Arg>
-    class BaseOpImpl : public OP_Base {
+    class BaseOpImpl : public OP_Base, public OP_Common {
     public:
         BaseOpImpl(const OP_NodeInfo* info)
         : nodeInfo_(info)
-        , opName_(extractOpName(info->opPath))
-        , errorString_("")
-        , warningString_("")
-        , infoString_("")
-        , executeCount_(0) {}
+        , executeCount_(0) {
+            extractOpName(info->opPath, opPath_, opName_);
+            saveOp(opPath_+opName_, this);
+        }
         
-        BaseOpImpl(){}
+        virtual ~BaseOpImpl()
+        {
+            eraseOp(opPath_+opName_, this);
+        }
         
         virtual void getInfoPopupString(OP_String *info, void* reserved1) override
         {
@@ -109,10 +159,16 @@ namespace touch_ndn {
         virtual void execute(Arg... arg) override
         {
             executeCount_++;
-            clearWarning();
+//            clearWarning(); // why clear???
+            
+            std::string oldFullPath;
+            if (opPathChanged(nodeInfo_->opPath, oldFullPath))
+            {
+                updateOp(oldFullPath, this, opPath_+opName_);
+            }
             
             std::set<std::string> updatedParams;
-            
+
             checkInputs(updatedParams, std::forward<Arg>(arg)...);
             if (updatedParams.size()) paramsUpdated(updatedParams);
             
@@ -153,8 +209,7 @@ namespace touch_ndn {
     protected:
         const OP_NodeInfo *nodeInfo_;
         int64_t executeCount_;
-        std::string opName_;
-        std::string errorString_, warningString_, infoString_;
+        
         // FIFO Queue of callbbacks that will be called from within execute() method.
         // Queue will be executed until empty.
         // Callbacks should follow certain signature
@@ -177,43 +232,7 @@ namespace touch_ndn {
             throw std::runtime_error("Not implemented");
         }
         
-        std::string extractOpName(std::string opPath) const
-        {
-            size_t last = 0;
-            size_t next = 0;
-            
-            while ((next = opPath.find("/", last)) != std::string::npos)
-                last = next + 1;
-            
-            return opPath.substr(last);
-        }
-        
-        void clearError() { setError(""); }
-        void setError(const char *format, ...)
-        {
-            va_list args;
-            va_start(args, format);
-            setString(errorString_, format, args);
-            va_end(args);
-        }
-        
-        void clearWarning() { setWarning(""); }
-        void setWarning(const char *format, ...)
-        {
-            va_list args;
-            va_start(args, format);
-            setString(warningString_, format, args);
-            va_end(args);
-        }
-        
-        void setInfo(const char *format, ...)
-        {
-            va_list args;
-            va_start(args, format);
-            setString(infoString_, format, args);
-            va_end(args);
-        }
-        
+        // helper method for setting up operator parameters
         template<class ParameterClass>
         void appendPar(OP_ParameterManager* manager,
                        std::string name, std::string label, std::string page,
@@ -226,13 +245,6 @@ namespace touch_ndn {
         }
         
     private:
-        void setString(std::string &string, const char* format, va_list args)
-        {
-            static char s[4096];
-            memset((void*)s, 0, 4096);
-            vsprintf(s, format, args);
-            string = std::string(s);
-        }
         
     };
     
