@@ -73,8 +73,8 @@ namespace touch_ndn {
         void onOpUpdate(OP_Common*, const std::string&);
         
         void initPulsed() override;
-        void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
-        void paramsUpdated(const std::set<std::string>&) override;
+        void checkParams(DAT_Output*, const OP_Inputs*, void* reserved) override;
+        void paramsUpdated() override;
         
         void initKeyChain(DAT_Output*, const OP_Inputs*, void* reserved);
     };

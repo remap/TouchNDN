@@ -73,39 +73,6 @@ using namespace std::placeholders;
 using namespace ndn;
 using namespace touch_ndn;
 
-extern "C"
-{
-
-DLLEXPORT
-void
-FillDATPluginInfo(DAT_PluginInfo *info)
-{
-	info->apiVersion = DATCPlusPlusAPIVersion;
-	info->customOPInfo.opType->setString("Touchndnface");
-	info->customOPInfo.opLabel->setString("Face DAT");
-	info->customOPInfo.opIcon->setString("FDT");
-	info->customOPInfo.authorName->setString("Peter Gusev");
-	info->customOPInfo.authorEmail->setString("peter@remap.ucla.edu");
-	info->customOPInfo.minInputs = 0;
-	info->customOPInfo.maxInputs = 1;
-}
-
-DLLEXPORT
-DAT_CPlusPlusBase*
-CreateDATInstance(const OP_NodeInfo* info)
-{
-	return new FaceDAT(info);
-}
-
-DLLEXPORT
-void
-DestroyDATInstance(DAT_CPlusPlusBase* instance)
-{
-	delete (FaceDAT*)instance;
-}
-
-};
-
 //******************************************************************************
 // InfoDAT and InfoCHOP labels and indexes
 const map<FaceDAT::InfoChopIndex, string> FaceDAT::ChanNames = {
@@ -466,31 +433,18 @@ FaceDAT::initFace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
 }
 
 void
-FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inputs,
+FaceDAT::checkParams(DAT_Output *, const OP_Inputs *inputs,
                      void *reserved)
 {
     
-    if (nfdHost_ != string(inputs->getParString(PAR_NFD_HOST)))
-    {
-        paramNames.insert(PAR_NFD_HOST);
-        nfdHost_ = string(inputs->getParString(PAR_NFD_HOST));
-    }
+    
+    updateIfNew<string>
+    (PAR_NFD_HOST, nfdHost_, inputs->getParString(PAR_NFD_HOST));
     
     if (faceProcessor_)
     {
-        string s = inputs->getParString(PAR_KEYCHAIN_DAT);
-        string canonicalPath;
-        
-        if (s[0] == '/') // if first symbol is "/" -- assume absolute path
-            canonicalPath = helpers::canonical(s);
-        else if (s.size() > 0) // otherwise -- relative to current OP's path
-            canonicalPath = helpers::canonical(opPath_ + s);
-        
-        if (keyChainDat_ != canonicalPath)
-        {
-            keyChainDat_ = canonicalPath;
-            paramNames.insert(PAR_KEYCHAIN_DAT);
-        }
+        updateIfNew<string>
+        (PAR_KEYCHAIN_DAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAIN_DAT)));
     }
     
     currentOutputs_.clear();
@@ -508,20 +462,17 @@ FaceDAT::checkInputs(set<string>& paramNames, DAT_Output *, const OP_Inputs *inp
 }
 
 void
-FaceDAT::paramsUpdated(const std::set<std::string> &updatedParams)
+FaceDAT::paramsUpdated()
 {
-    if (updatedParams.find(PAR_NFD_HOST) != updatedParams.end())
-    {
+    runIfUpdated(PAR_NFD_HOST, [this](){
         dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
-    }
-    
-    if (updatedParams.find(PAR_KEYCHAIN_DAT) != updatedParams.end())
-    {
+    });
+    runIfUpdated(PAR_KEYCHAIN_DAT, [this](){
         // clear up existing keychain, if set up
         if (keyChainDatOp_)
             dispatchOnExecute(bind(&FaceDAT::clearKeyChainPairing, this, _1, _2, _3));
         dispatchOnExecute(bind(&FaceDAT::setupKeyChainPairing, this, _1, _2, _3));
-    }
+    });
 }
 
 void
@@ -718,7 +669,7 @@ void FaceDAT::setupKeyChainPairing(DAT_Output* output, const OP_Inputs* inputs, 
     }
     else if ((keyChainDatOp = retrieveOp(keyChainDat_)))
         {
-            keyChainDatOp_ = dynamic_cast<KeyChainDAT*>((BaseDAT*)keyChainDatOp);
+            keyChainDatOp_ = (KeyChainDAT*)keyChainDatOp;
         
             err = (keyChainDatOp_ ? 0 : 1);
             
@@ -767,6 +718,7 @@ void FaceDAT::clearKeyChainPairing(DAT_Output *, const OP_Inputs *, void *reserv
         signingCertRegId_ = 0;
         instanceCertRegId_ = 0;
         keyChainDat_ = "";
+        keyChainDatOp_->unsubscribe(this);
         keyChainDatOp_ = nullptr;
     }
 }

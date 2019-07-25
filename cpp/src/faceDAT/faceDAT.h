@@ -79,7 +79,7 @@ namespace touch_ndn
         virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
         virtual void        pulsePressed(const char* name, void* reserved1) override;
         
-        std::shared_ptr<helpers::FaceProcessor> getFaceProcessor() const
+        std::shared_ptr<helpers::FaceProcessor> getFaceProcessor()
         { return faceProcessor_; }
         
     private:
@@ -138,8 +138,8 @@ namespace touch_ndn
         
         void initPulsed() override;
         void initFace(DAT_Output*, const OP_Inputs*, void* reserved);
-        void checkInputs(std::set<std::string>&, DAT_Output*, const OP_Inputs*, void* reserved) override;
-        void paramsUpdated(const std::set<std::string>&) override;
+        void checkParams(DAT_Output*, const OP_Inputs*, void* reserved) override;
+        void paramsUpdated() override;
         
         void express(const std::vector<std::shared_ptr<ndn::Interest>>&, bool);
         void express(std::string prefix, int lifetime, bool mustBeFresh, bool clearTable = false);

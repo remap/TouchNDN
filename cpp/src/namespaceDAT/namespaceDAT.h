@@ -29,6 +29,9 @@ namespace cnl_cpp {
 namespace touch_ndn
 {
 
+    class FaceDAT;
+    class KeyChainDAT;
+    
 /*
  This is a basic sample project to represent the usage of CPlusPlus DAT API.
  To get more help about these functions, look at DAT_CPlusPlusBase.h
@@ -36,12 +39,18 @@ namespace touch_ndn
 class NamespaceDAT : public BaseDAT
 {
 public:
+    enum class HandlerType : int32_t {
+        None,
+        Segmented,
+        GObj,
+        GObjStream
+    };
+    
 	NamespaceDAT(const OP_NodeInfo* info);
 	virtual ~NamespaceDAT();
 
-	virtual void		execute(DAT_Output*,
-								const OP_Inputs*,
-								void* reserved) override;
+    virtual void getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1);
+	virtual void execute(DAT_Output*, const OP_Inputs*, void* reserved) override;
 
 
 //    virtual int32_t        getNumInfoCHOPChans(void* reserved1) override;
@@ -49,17 +58,36 @@ public:
 //                                        OP_InfoCHOPChan* chan, 
 //                                        void* reserved1) override;
 //
-//    virtual bool        getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
-//    virtual void        getInfoDATEntries(int32_t index,
-//                                            int32_t nEntries,
-//                                            OP_InfoDATEntries* entries,
-//                                            void* reserved1) override;
+    virtual bool        getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
+    virtual void        getInfoDATEntries(int32_t index,
+                                            int32_t nEntries,
+                                            OP_InfoDATEntries* entries,
+                                            void* reserved1) override;
 
 	virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
 	virtual void		pulsePressed(const char* name, void* reserved1) override;
 
 private:
+    HandlerType handlerType_;
     uint32_t freshness_;
+    std::string prefix_, faceDat_, keyChainDat_, payloadTop_;
+    FaceDAT *faceDatOp_;
+    KeyChainDAT *keyChainDatOp_;
+    std::shared_ptr<cnl_cpp::Namespace> namespace_;
+    
+    virtual void onOpUpdate(OP_Common*, const std::string&) override;
+    
+    void checkParams(DAT_Output*, const OP_Inputs*, void* reserved) override;
+    void paramsUpdated() override;
+  
+    void initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void pairFaceDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void unpairFaceDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void pairKeyChainDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void unpairKeyChainDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    
+    void runPublish(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
 };
 
 }

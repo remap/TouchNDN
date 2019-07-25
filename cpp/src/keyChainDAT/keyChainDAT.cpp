@@ -176,28 +176,19 @@ KeyChainDAT::initPulsed()
 }
 
 void
-KeyChainDAT::checkInputs(set<string> &paramNames, DAT_Output *, const OP_Inputs *inputs, void *)
+KeyChainDAT::checkParams(DAT_Output *, const OP_Inputs *inputs, void *)
 {
-    {
-        string s = inputs->getParString(PAR_KEYCHAIN_MENU);
-        KeyChainType t = KeyChainTypeMap.at(s);
-    
-        if (keyChainType_ != t)
-        {
-            keyChainType_ = t;
-            paramNames.insert(PAR_KEYCHAIN_MENU);
-        }
-    }
+    updateIfNew<KeyChainType>
+    (PAR_KEYCHAIN_MENU, keyChainType_, KeyChainTypeMap.at(inputs->getParString(PAR_KEYCHAIN_MENU)));
 }
 
 void
-KeyChainDAT::paramsUpdated(const set<string> &updatedParams)
+KeyChainDAT::paramsUpdated()
 {
-    if (updatedParams.find(PAR_KEYCHAIN_MENU) != updatedParams.end())
-    {
+    runIfUpdated(PAR_KEYCHAIN_MENU, [this](){
         // re-init keychain
         dispatchOnExecute(bind(&KeyChainDAT::initKeyChain, this, _1, _2, _3));
-    }
+    });
 }
 
 void

@@ -18,11 +18,40 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
-#ifndef keyChainDAT_external_hpp
-#define keyChainDAT_external_hpp
+#include "faceDAT-external.hpp"
+#include "faceDAT.h"
 
-#include <stdio.h>
-#include "CPlusPlus_Common.h"
-#include "DAT_CPlusPlusBase.h"
+using namespace touch_ndn;
 
-#endif /* keyChainDAT_external_hpp */
+extern "C"
+{
+    
+    DLLEXPORT
+    void
+    FillDATPluginInfo(DAT_PluginInfo *info)
+    {
+        info->apiVersion = DATCPlusPlusAPIVersion;
+        info->customOPInfo.opType->setString("Touchndnface");
+        info->customOPInfo.opLabel->setString("Face DAT");
+        info->customOPInfo.opIcon->setString("FDT");
+        info->customOPInfo.authorName->setString("Peter Gusev");
+        info->customOPInfo.authorEmail->setString("peter@remap.ucla.edu");
+        info->customOPInfo.minInputs = 0;
+        info->customOPInfo.maxInputs = 1;
+    }
+    
+    DLLEXPORT
+    DAT_CPlusPlusBase*
+    CreateDATInstance(const OP_NodeInfo* info)
+    {
+        return new FaceDAT(info);
+    }
+    
+    DLLEXPORT
+    void
+    DestroyDATInstance(DAT_CPlusPlusBase* instance)
+    {
+        delete (FaceDAT*)instance;
+    }
+    
+};

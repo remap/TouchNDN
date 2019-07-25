@@ -18,11 +18,9 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
-#ifndef keyChainDAT_external_hpp
-#define keyChainDAT_external_hpp
+#ifndef faceDAT_external_hpp
+#define faceDAT_external_hpp
 
 #include <stdio.h>
-#include "CPlusPlus_Common.h"
-#include "DAT_CPlusPlusBase.h"
 
-#endif /* keyChainDAT_external_hpp */
+#endif /* faceDAT_external_hpp */

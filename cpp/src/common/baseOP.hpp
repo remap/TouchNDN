@@ -56,6 +56,11 @@ namespace touch_ndn {
         void unsubscribe(OP_Common*);
         virtual void onOpUpdate(OP_Common*, const std::string& event){}
         virtual void notifyListeners(const std::string& event);
+        // returns canonical (absolute) path for given path
+        // this function tests if "path" starts with "/" -- then it is treated as absolute path
+        // otherwise -- path treated as a relative to opPath_
+        // in either way, path is checked for existing ".." and updated accordingly
+        std::string getCanonical(const std::string &path);
         
     protected:
         std::vector<OP_Common*> listeners_;
@@ -163,14 +168,11 @@ namespace touch_ndn {
             
             std::string oldFullPath;
             if (opPathChanged(nodeInfo_->opPath, oldFullPath))
-            {
                 updateOp(oldFullPath, this, opPath_+opName_);
-            }
-            
-            std::set<std::string> updatedParams;
 
-            checkInputs(updatedParams, std::forward<Arg>(arg)...);
-            if (updatedParams.size()) paramsUpdated(updatedParams);
+            updatedParams_.clear();
+            checkParams(std::forward<Arg>(arg)...);
+            if (updatedParams_.size()) paramsUpdated();
             
             // run execute callback queue
             try {
@@ -209,6 +211,7 @@ namespace touch_ndn {
     protected:
         const OP_NodeInfo *nodeInfo_;
         int64_t executeCount_;
+        std::set<std::string> updatedParams_;
         
         // FIFO Queue of callbbacks that will be called from within execute() method.
         // Queue will be executed until empty.
@@ -223,12 +226,12 @@ namespace touch_ndn {
         // override in subclasses
         virtual void initPulsed() {}
         // override in subclasses. should add udpated params names into the set
-        virtual void checkInputs(std::set<std::string> &updatedParams, Arg... arg) {
+        virtual void checkParams(Arg... arg) {
             throw std::runtime_error("Not implemented");
         }
         // override in subclasses
         // @param updatedParams Set of names of the updated parameters
-        virtual void paramsUpdated(const std::set<std::string> &updatedParams) {
+        virtual void paramsUpdated() {
             throw std::runtime_error("Not implemented");
         }
         
@@ -243,6 +246,32 @@ namespace touch_ndn {
             p.page = page.c_str();
             assert(OP_ParAppendResult::Success == appendCode(p));
         }
+        
+        template<class ParamType>
+        inline bool updateIfNew(std::string parName, ParamType &curP, ParamType newP,
+                         std::function<bool(ParamType&)> cond = std::function<bool(ParamType&)>())
+        {
+            if (( cond && cond(newP) ) ||
+                ( !cond && curP != newP ))
+            {
+                updatedParams_.insert(parName);
+                curP = newP;
+                return true;
+            }
+
+            return false;
+        }
+        
+        inline bool runIfUpdated(std::string parName, std::function<void()> func)
+        {
+            if (updatedParams_.find(parName) != updatedParams_.end())
+            {
+                func();
+                return true;
+            }
+            return false;
+        }
+        
         
     private:
         

@@ -94,6 +94,19 @@ namespace touch_ndn
             o->onOpUpdate(this, event);
     }
     
+    string
+    OP_Common::getCanonical(const std::string &path)
+    {
+        string canonicalPath;
+        
+        if (path[0] == '/') // if first symbol is "/" -- assume absolute path
+            canonicalPath = helpers::canonical(path);
+        else if (path.size() > 0) // otherwise -- relative to current OP's path
+            canonicalPath = helpers::canonical(opPath_ + path);
+        
+        return canonicalPath;
+    }
+    
     void
     OP_Common::extractOpName(std::string opFullPath, std::string &opPath, std::string &opName)
     {

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AF120C3922E67850008BC7A0 /* keyChainDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A94F822B4564800662FAD /* keyChainDAT.cpp */; };
 		AF120C3C22E678B0008BC7A0 /* keyChainDAT-external.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF120C3A22E678B0008BC7A0 /* keyChainDAT-external.cpp */; };
 		AF120C3D22E68828008BC7A0 /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
 		AF21375122DFE11600531F09 /* touchNDN-shared.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF21374722DFE09500531F09 /* touchNDN-shared.cpp */; };
@@ -33,8 +32,6 @@
 		AFB405F922C2B6D30036C08A /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AFB405F622C2B6D30036C08A /* LICENSE */; };
 		AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
 		AFCD77B422E78C410000302C /* key-chain-manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77B322E78C410000302C /* key-chain-manager.cpp */; };
-		AFCD77B522E7A7750000302C /* foundation-helpers.mm in Sources */ = {isa = PBXBuildFile; fileRef = AF70154F22C4368A009D35F6 /* foundation-helpers.mm */; };
-		AFCD77B622E7A8030000302C /* key-chain-manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77B322E78C410000302C /* key-chain-manager.cpp */; };
 		AFCD77B922E8DBFC0000302C /* baseDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A950F22B4621000662FAD /* baseDAT.cpp */; };
 		AFCD77BB22E8DBFC0000302C /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
 		AFCD77BD22E8DBFC0000302C /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
@@ -44,6 +41,9 @@
 		AFCD77D522E8DCA50000302C /* libcnl-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950B22B461C600662FAD /* libcnl-cpp.a */; };
 		AFCD77D622E8DCD50000302C /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
 		AFCD77D722E8DE440000302C /* namespaceDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AFCD77D122E8DBFC0000302C /* namespaceDAT.plugin */; };
+		AFCD77D822E924530000302C /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
+		AFCD77DB22E9271D0000302C /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
+		AFCD77DE22E9273B0000302C /* faceDAT-external.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -152,6 +152,8 @@
 		AFCD77B322E78C410000302C /* key-chain-manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = "key-chain-manager.cpp"; path = "src/keyChainDAT/key-chain-manager.cpp"; sourceTree = "<group>"; };
 		AFCD77D122E8DBFC0000302C /* namespaceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = namespaceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		AFCD77D222E8DBFC0000302C /* namespaceDAT.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = namespaceDAT.plist; path = /Users/peetonn/Documents/Work/touchNDN/repo/cpp/namespaceDAT.plist; sourceTree = "<absolute>"; };
+		AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "faceDAT-external.cpp"; path = "src/faceDAT/faceDAT-external.cpp"; sourceTree = "<group>"; };
+		AFCD77DD22E9273B0000302C /* faceDAT-external.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = "faceDAT-external.hpp"; path = "src/faceDAT/faceDAT-external.hpp"; sourceTree = "<group>"; };
 		E227270F21B6EE9A00905532 /* faceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = faceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		E227271221B6EE9A00905532 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -180,6 +182,7 @@
 				AFCD77C122E8DBFC0000302C /* libtouchNDN-shared.dylib in Frameworks */,
 				AFCD77C222E8DBFC0000302C /* libndn-cpp.a in Frameworks */,
 				AFCD77D522E8DCA50000302C /* libcnl-cpp.a in Frameworks */,
+				AFCD77D822E924530000302C /* libboost_system.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,6 +226,8 @@
 				AF5A951522B46F8200662FAD /* face-processor.hpp */,
 				AF5A94F522B4563E00662FAD /* faceDAT.cpp */,
 				AF5A94F622B4563E00662FAD /* faceDAT.h */,
+				AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */,
+				AFCD77DD22E9273B0000302C /* faceDAT-external.hpp */,
 			);
 			name = faceDAT;
 			sourceTree = "<group>";
@@ -588,6 +593,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AFCD77B922E8DBFC0000302C /* baseDAT.cpp in Sources */,
+				AFCD77DB22E9271D0000302C /* face-processor.cpp in Sources */,
 				AFCD77BB22E8DBFC0000302C /* baseOP.cpp in Sources */,
 				AFCD77BD22E8DBFC0000302C /* apr_base64.c in Sources */,
 				AFCD77D322E8DC670000302C /* namespaceDAT.cpp in Sources */,
@@ -600,12 +606,10 @@
 			files = (
 				AF5A951122B4621000662FAD /* baseDAT.cpp in Sources */,
 				AF5A951B22B4758400662FAD /* face-processor.cpp in Sources */,
-				AF120C3922E67850008BC7A0 /* keyChainDAT.cpp in Sources */,
 				AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */,
+				AFCD77DE22E9273B0000302C /* faceDAT-external.cpp in Sources */,
 				AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */,
-				AFCD77B522E7A7750000302C /* foundation-helpers.mm in Sources */,
 				AF120C3D22E68828008BC7A0 /* baseOP.cpp in Sources */,
-				AFCD77B622E7A8030000302C /* key-chain-manager.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
