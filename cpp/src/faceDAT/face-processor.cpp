@@ -23,6 +23,8 @@
 #include <ndn-cpp/security/key-chain.hpp>
 #include <ndn-cpp/security/identity/memory-identity-storage.hpp>
 #include <ndn-cpp/security/identity/memory-private-key-storage.hpp>
+#include <ndn-cpp/security/pib/pib-memory.hpp>
+#include <ndn-cpp/security/tpm/tpm-back-end-memory.hpp>
 
 #define USE_THREADSAFE_FACE
 
@@ -81,14 +83,8 @@ bool FaceProcessor::checkNfdConnection(string host)
 #if 0
     KeyChain keyChain;
 #else
-    // using in-memory keychain as a workaround to avoid exception
-    // trying to sign with the default key
-    shared_ptr<MemoryIdentityStorage> identityStorage = make_shared<MemoryIdentityStorage>();
-    shared_ptr<MemoryPrivateKeyStorage> privateKeyStorage = make_shared<MemoryPrivateKeyStorage>();
-    
-    KeyChain keyChain(make_shared<IdentityManager>(identityStorage, privateKeyStorage));
+    KeyChain keyChain(make_shared<PibMemory>(), make_shared<TpmBackEndMemory>());
     keyChain.createIdentityAndCertificate("connectivity-check");
-    keyChain.getIdentityManager()->setDefaultIdentity("connectivity-check");
 #endif
     Face face(host.c_str());
     
