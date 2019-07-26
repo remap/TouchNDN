@@ -42,8 +42,9 @@
 		AFCD77D622E8DCD50000302C /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
 		AFCD77D722E8DE440000302C /* namespaceDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AFCD77D122E8DBFC0000302C /* namespaceDAT.plugin */; };
 		AFCD77D822E924530000302C /* libboost_system.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A951922B4755C00662FAD /* libboost_system.a */; };
-		AFCD77DB22E9271D0000302C /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
 		AFCD77DE22E9273B0000302C /* faceDAT-external.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */; };
+		AFCD77E022E974950000302C /* libndn-cpp-tools.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77DF22E974940000302C /* libndn-cpp-tools.a */; };
+		AFCD77E122EA602B0000302C /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -154,6 +155,7 @@
 		AFCD77D222E8DBFC0000302C /* namespaceDAT.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = namespaceDAT.plist; path = /Users/peetonn/Documents/Work/touchNDN/repo/cpp/namespaceDAT.plist; sourceTree = "<absolute>"; };
 		AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "faceDAT-external.cpp"; path = "src/faceDAT/faceDAT-external.cpp"; sourceTree = "<group>"; };
 		AFCD77DD22E9273B0000302C /* faceDAT-external.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = "faceDAT-external.hpp"; path = "src/faceDAT/faceDAT-external.hpp"; sourceTree = "<group>"; };
+		AFCD77DF22E974940000302C /* libndn-cpp-tools.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libndn-cpp-tools.a"; path = "../../deps/build/lib/libndn-cpp-tools.a"; sourceTree = "<group>"; };
 		E227270F21B6EE9A00905532 /* faceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = faceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		E227271221B6EE9A00905532 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -183,6 +185,7 @@
 				AFCD77C222E8DBFC0000302C /* libndn-cpp.a in Frameworks */,
 				AFCD77D522E8DCA50000302C /* libcnl-cpp.a in Frameworks */,
 				AFCD77D822E924530000302C /* libboost_system.a in Frameworks */,
+				AFCD77E022E974950000302C /* libndn-cpp-tools.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,6 +272,7 @@
 		AF5A950A22B461B200662FAD /* deps */ = {
 			isa = PBXGroup;
 			children = (
+				AFCD77DF22E974940000302C /* libndn-cpp-tools.a */,
 				AF5A951922B4755C00662FAD /* libboost_system.a */,
 				AF5A950B22B461C600662FAD /* libcnl-cpp.a */,
 				AF5A950C22B461C600662FAD /* libndn-cpp.a */,
@@ -527,7 +531,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if false; then\nif [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\"\nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\nfi\n";
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\"\nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
 		};
 		AFCD77CB22E8DBFC0000302C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -544,7 +548,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if false; then\nif [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\nfi\n";
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
 		};
 		AFDEA7BA22E0F6BE00512B57 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -561,7 +565,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if false; then\nif [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\nfi\n";
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -593,9 +597,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				AFCD77B922E8DBFC0000302C /* baseDAT.cpp in Sources */,
-				AFCD77DB22E9271D0000302C /* face-processor.cpp in Sources */,
 				AFCD77BB22E8DBFC0000302C /* baseOP.cpp in Sources */,
 				AFCD77BD22E8DBFC0000302C /* apr_base64.c in Sources */,
+				AFCD77E122EA602B0000302C /* face-processor.cpp in Sources */,
 				AFCD77D322E8DC670000302C /* namespaceDAT.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

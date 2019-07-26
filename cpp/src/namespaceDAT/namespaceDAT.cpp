@@ -27,6 +27,9 @@
 #include <array>
 
 #include <cnl-cpp/namespace.hpp>
+#include <cnl-cpp/segmented-object-handler.hpp>
+#include <cnl-cpp/generalized-object/generalized-object-handler.hpp>
+#include <cnl-cpp/generalized-object/generalized-object-stream-handler.hpp>
 
 #include "faceDAT.h"
 #include "keyChainDAT.h"
@@ -78,7 +81,7 @@ void
 FillDATPluginInfo(DAT_PluginInfo *info)
 {
 	info->apiVersion = DATCPlusPlusAPIVersion;
-	info->customOPInfo.opType->setString("Touchndnnamespace");
+	info->customOPInfo.opType->setString("Ndnnamespace");
 	info->customOPInfo.opLabel->setString("Namespace DAT");
 	info->customOPInfo.opIcon->setString("NDT");
 	info->customOPInfo.authorName->setString("Peter Gusev");
@@ -98,7 +101,7 @@ DLLEXPORT
 void
 DestroyDATInstance(DAT_CPlusPlusBase* instance)
 {
-	delete (NamespaceDAT*)instance;
+	delete (    NamespaceDAT*)instance;
 }
 
 };
@@ -137,8 +140,6 @@ NamespaceDAT::execute(DAT_Output* output,
     {
         if (inputs->getNumInputs() || payloadTop_.size())
             runPublish(output, inputs, reserved);
-        else
-            runFetch(output, inputs, reserved);
     }
 }
 
@@ -273,7 +274,7 @@ NamespaceDAT::pulsePressed(const char* name, void* reserved1)
 {
     if (string(name) == PAR_OBJECT_NEEDED)
     {
-        cout << "object needed " << endl;
+        runFetch(nullptr, nullptr, nullptr);
     }
     else
         BaseDAT::pulsePressed(name, reserved1);
@@ -444,8 +445,25 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
 void
 NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    if (namespace_->getFace_())
+    if (namespace_ && namespace_->getFace_())
     {
-        
+        cout << "fetch " << namespace_->getName() << endl;
+        switch (handlerType_) {
+            case HandlerType::None :
+                namespace_->objectNeeded();
+                break;
+            case HandlerType::Segmented:
+                SegmentedObjectHandler(namespace_.get()).objectNeeded();
+                break;
+            case HandlerType::GObj:
+                GeneralizedObjectHandler(namespace_.get()).objectNeeded();
+                break;
+            case HandlerType::GObjStream:
+                
+                break;
+            default:
+                setError("Unsupported handler type");
+                break;
+        }
     }
 }

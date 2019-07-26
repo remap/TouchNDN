@@ -31,7 +31,7 @@ extern "C"
     FillDATPluginInfo(DAT_PluginInfo *info)
     {
         info->apiVersion = DATCPlusPlusAPIVersion;
-        info->customOPInfo.opType->setString("Touchndnface");
+        info->customOPInfo.opType->setString("Ndnface");
         info->customOPInfo.opLabel->setString("Face DAT");
         info->customOPInfo.opIcon->setString("FDT");
         info->customOPInfo.authorName->setString("Peter Gusev");

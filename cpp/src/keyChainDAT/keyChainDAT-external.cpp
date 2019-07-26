@@ -35,7 +35,7 @@ extern "C"
     FillDATPluginInfo(DAT_PluginInfo *info)
     {
         info->apiVersion = DATCPlusPlusAPIVersion;
-        info->customOPInfo.opType->setString("Touchndnkeychain");
+        info->customOPInfo.opType->setString("Ndnkeychain");
         info->customOPInfo.opLabel->setString("KeyChain DAT");
         info->customOPInfo.opIcon->setString("KDT");
         info->customOPInfo.authorName->setString("Peter Gusev");
