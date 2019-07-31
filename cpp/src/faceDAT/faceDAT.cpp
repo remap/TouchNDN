@@ -28,12 +28,13 @@
 #include <array>
 #include <unordered_map>
 
+#include <touchndn-helper/helper.hpp>
+
 #include <ndn-cpp/face.hpp>
 #include <ndn-cpp/key-locator.hpp>
 #include <ndn-cpp/security/key-chain.hpp>
 
 #include "face-processor.hpp"
-#include "touchNDN-shared.hpp"
 #include "keyChainDAT.h"
 #include "key-chain-manager.hpp"
 

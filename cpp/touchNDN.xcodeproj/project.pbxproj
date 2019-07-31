@@ -9,10 +9,6 @@
 /* Begin PBXBuildFile section */
 		AF120C3C22E678B0008BC7A0 /* keyChainDAT-external.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF120C3A22E678B0008BC7A0 /* keyChainDAT-external.cpp */; };
 		AF120C3D22E68828008BC7A0 /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
-		AF21375122DFE11600531F09 /* touchNDN-shared.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF21374722DFE09500531F09 /* touchNDN-shared.cpp */; };
-		AF21375222DFE11A00531F09 /* touchNDN-shared.hpp in Headers */ = {isa = PBXBuildFile; fileRef = AF21374822DFE09500531F09 /* touchNDN-shared.hpp */; };
-		AF21375322DFE17D00531F09 /* libtouchNDN-shared.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AF21374D22DFE10800531F09 /* libtouchNDN-shared.dylib */; };
-		AF21375422DFE18400531F09 /* libtouchNDN-shared.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AF21374D22DFE10800531F09 /* libtouchNDN-shared.dylib */; };
 		AF56822D22E0FE800033113F /* libndn-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950C22B461C600662FAD /* libndn-cpp.a */; };
 		AF5A94F722B4563E00662FAD /* faceDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A94F522B4563E00662FAD /* faceDAT.cpp */; };
 		AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = E227270F21B6EE9A00905532 /* faceDAT.plugin */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -35,7 +31,6 @@
 		AFCD77B922E8DBFC0000302C /* baseDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A950F22B4621000662FAD /* baseDAT.cpp */; };
 		AFCD77BB22E8DBFC0000302C /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
 		AFCD77BD22E8DBFC0000302C /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
-		AFCD77C122E8DBFC0000302C /* libtouchNDN-shared.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AF21374D22DFE10800531F09 /* libtouchNDN-shared.dylib */; };
 		AFCD77C222E8DBFC0000302C /* libndn-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950C22B461C600662FAD /* libndn-cpp.a */; };
 		AFCD77D322E8DC670000302C /* namespaceDAT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A94FB22B4565000662FAD /* namespaceDAT.cpp */; };
 		AFCD77D522E8DCA50000302C /* libcnl-cpp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF5A950B22B461C600662FAD /* libcnl-cpp.a */; };
@@ -45,6 +40,9 @@
 		AFCD77DE22E9273B0000302C /* faceDAT-external.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */; };
 		AFCD77E022E974950000302C /* libndn-cpp-tools.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77DF22E974940000302C /* libndn-cpp-tools.a */; };
 		AFCD77E122EA602B0000302C /* face-processor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951422B46F8200662FAD /* face-processor.cpp */; };
+		AFCD780022F15DF80000302C /* libtouchndn-helper.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */; };
+		AFCD780122F15E050000302C /* libtouchndn-helper.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */; };
+		AFCD780222F15E100000302C /* libtouchndn-helper.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,9 +112,6 @@
 /* Begin PBXFileReference section */
 		AF120C3A22E678B0008BC7A0 /* keyChainDAT-external.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "keyChainDAT-external.cpp"; path = "src/keyChainDAT/keyChainDAT-external.cpp"; sourceTree = "<group>"; };
 		AF120C3B22E678B0008BC7A0 /* keyChainDAT-external.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = "keyChainDAT-external.hpp"; path = "src/keyChainDAT/keyChainDAT-external.hpp"; sourceTree = "<group>"; };
-		AF21374722DFE09500531F09 /* touchNDN-shared.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "touchNDN-shared.cpp"; path = "src/common/touchNDN-shared.cpp"; sourceTree = "<group>"; };
-		AF21374822DFE09500531F09 /* touchNDN-shared.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = "touchNDN-shared.hpp"; path = "src/common/touchNDN-shared.hpp"; sourceTree = "<group>"; };
-		AF21374D22DFE10800531F09 /* libtouchNDN-shared.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "libtouchNDN-shared.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF56822B22E0FE130033113F /* libcrypto.1.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.1.0.0.dylib; path = ../../../../../../../usr/local/Cellar/openssl/1.0.2r/lib/libcrypto.1.0.0.dylib; sourceTree = "<group>"; };
 		AF5A94F222B4562F00662FAD /* CPlusPlus_Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CPlusPlus_Common.h; path = src/common/CPlusPlus_Common.h; sourceTree = "<group>"; };
 		AF5A94F322B4562F00662FAD /* GL_Extensions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GL_Extensions.h; path = src/common/GL_Extensions.h; sourceTree = "<group>"; };
@@ -156,23 +151,17 @@
 		AFCD77DC22E9273B0000302C /* faceDAT-external.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = "faceDAT-external.cpp"; path = "src/faceDAT/faceDAT-external.cpp"; sourceTree = "<group>"; };
 		AFCD77DD22E9273B0000302C /* faceDAT-external.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = "faceDAT-external.hpp"; path = "src/faceDAT/faceDAT-external.hpp"; sourceTree = "<group>"; };
 		AFCD77DF22E974940000302C /* libndn-cpp-tools.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libndn-cpp-tools.a"; path = "../../deps/build/lib/libndn-cpp-tools.a"; sourceTree = "<group>"; };
+		AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libtouchndn-helper.0.dylib"; path = "../../../../../../../usr/local/lib/libtouchndn-helper.0.dylib"; sourceTree = "<group>"; };
 		E227270F21B6EE9A00905532 /* faceDAT.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = faceDAT.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		E227271221B6EE9A00905532 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		AF21374B22DFE10800531F09 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		AF70153122C42EE8009D35F6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AF21375422DFE18400531F09 /* libtouchNDN-shared.dylib in Frameworks */,
+				AFCD780122F15E050000302C /* libtouchndn-helper.0.dylib in Frameworks */,
 				AF70153222C42EE8009D35F6 /* libndn-cpp.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -181,7 +170,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AFCD77C122E8DBFC0000302C /* libtouchNDN-shared.dylib in Frameworks */,
+				AFCD780022F15DF80000302C /* libtouchndn-helper.0.dylib in Frameworks */,
 				AFCD77C222E8DBFC0000302C /* libndn-cpp.a in Frameworks */,
 				AFCD77D522E8DCA50000302C /* libcnl-cpp.a in Frameworks */,
 				AFCD77D822E924530000302C /* libboost_system.a in Frameworks */,
@@ -193,7 +182,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AF21375322DFE17D00531F09 /* libtouchNDN-shared.dylib in Frameworks */,
+				AFCD780222F15E100000302C /* libtouchndn-helper.0.dylib in Frameworks */,
 				AF56822D22E0FE800033113F /* libndn-cpp.a in Frameworks */,
 				AFCD77D622E8DCD50000302C /* libboost_system.a in Frameworks */,
 			);
@@ -215,8 +204,6 @@
 				AF5A951022B4621000662FAD /* baseDAT.hpp */,
 				AF5A951D22B4A1F400662FAD /* baseOP.cpp */,
 				AF5A951E22B4A1F400662FAD /* baseOP.hpp */,
-				AF21374722DFE09500531F09 /* touchNDN-shared.cpp */,
-				AF21374822DFE09500531F09 /* touchNDN-shared.hpp */,
 			);
 			name = common;
 			sourceTree = "<group>";
@@ -283,6 +270,7 @@
 		AF5A951222B46D3100662FAD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */,
 				AF56822B22E0FE130033113F /* libcrypto.1.0.0.dylib */,
 			);
 			name = Frameworks;
@@ -350,7 +338,6 @@
 			children = (
 				E227270F21B6EE9A00905532 /* faceDAT.plugin */,
 				AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */,
-				AF21374D22DFE10800531F09 /* libtouchNDN-shared.dylib */,
 				AFCD77D122E8DBFC0000302C /* namespaceDAT.plugin */,
 			);
 			name = Products;
@@ -370,35 +357,7 @@
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		AF21374922DFE10800531F09 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AF21375222DFE11A00531F09 /* touchNDN-shared.hpp in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXNativeTarget section */
-		AF21374C22DFE10800531F09 /* touchNDN-shared */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = AF21374E22DFE10800531F09 /* Build configuration list for PBXNativeTarget "touchNDN-shared" */;
-			buildPhases = (
-				AF21374922DFE10800531F09 /* Headers */,
-				AF21374A22DFE10800531F09 /* Sources */,
-				AF21374B22DFE10800531F09 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "touchNDN-shared";
-			productName = "touchNDN-shared";
-			productReference = AF21374D22DFE10800531F09 /* libtouchNDN-shared.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
 		AF70152A22C42EE8009D35F6 /* keyChainDAT */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AF70153822C42EE8009D35F6 /* Build configuration list for PBXNativeTarget "keyChainDAT" */;
@@ -467,9 +426,6 @@
 				LastUpgradeCheck = 1010;
 				ORGANIZATIONNAME = Derivative;
 				TargetAttributes = {
-					AF21374C22DFE10800531F09 = {
-						CreatedOnToolsVersion = 10.2.1;
-					};
 					E227270E21B6EE9A00905532 = {
 						CreatedOnToolsVersion = 10.1;
 					};
@@ -490,7 +446,6 @@
 				E227270E21B6EE9A00905532 /* faceDAT */,
 				AF70152A22C42EE8009D35F6 /* keyChainDAT */,
 				AFCD77B722E8DBFC0000302C /* namespaceDAT */,
-				AF21374C22DFE10800531F09 /* touchNDN-shared */,
 			);
 		};
 /* End PBXProject section */
@@ -531,7 +486,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\"\nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\"\nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath -i /usr/local/lib || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
 		};
 		AFCD77CB22E8DBFC0000302C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -548,7 +503,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath -i /usr/local/lib || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
 		};
 		AFDEA7BA22E0F6BE00512B57 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -565,19 +520,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath -i /usr/local/lib || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		AF21374A22DFE10800531F09 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AF21375122DFE11600531F09 /* touchNDN-shared.cpp in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		AF70152B22C42EE8009D35F6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -628,36 +575,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		AF21374F22DFE10800531F09 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6KW3GER39A;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXECUTABLE_PREFIX = lib;
-				INSTALL_PATH = $BUILT_PRODUCTS_DIR;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = Debug;
-		};
-		AF21375022DFE10800531F09 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6KW3GER39A;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXECUTABLE_PREFIX = lib;
-				INSTALL_PATH = $BUILT_PRODUCTS_DIR;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-			};
-			name = Release;
-		};
 		AF70153922C42EE8009D35F6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -891,15 +808,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AF21374E22DFE10800531F09 /* Build configuration list for PBXNativeTarget "touchNDN-shared" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				AF21374F22DFE10800531F09 /* Debug */,
-				AF21375022DFE10800531F09 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		AF70153822C42EE8009D35F6 /* Build configuration list for PBXNativeTarget "keyChainDAT" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

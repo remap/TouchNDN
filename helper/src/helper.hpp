@@ -18,55 +18,22 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
-#include "touchNDN-shared.hpp"
-#include "baseDAT.hpp"
+#ifndef touchNDN_shared_hpp
+#define touchNDN_shared_hpp
 
-using namespace std;
-using namespace touch_ndn;
+#include <stdio.h>
+#include <map>
+#include <string>
 
-map<string, void*> TouchNdnOps;
+#include "config.hpp"
 
-namespace touch_ndn
-{
+namespace touch_ndn {
+    class BaseDAT;
 
-bool saveOp(string path, void* op)
-{
-    if (TouchNdnOps.find(path) != TouchNdnOps.end())
-        return false;
-    TouchNdnOps[path] = op;
-    return true;
+    bool saveOp(std::string path, void* op);
+    void* retrieveOp(std::string path);
+    bool updateOp(std::string path, void* caller, std::string newPath);
+    bool eraseOp(std::string path, void* caller);
 }
 
-void* retrieveOp(string path)
-{
-    if (TouchNdnOps.find(path) != TouchNdnOps.end())
-        return TouchNdnOps[path];
-    return nullptr;
-}
-
-bool updateOp(string path, void* caller, string newPath)
-{
-    void *op = retrieveOp(path);
-    if (op == caller && op)
-    {
-        TouchNdnOps.erase(path);
-        TouchNdnOps[newPath] = op;
-        return true;
-    }
-    
-    return false;
-}
-
-bool eraseOp(string path, void* caller)
-{
-    void *op = retrieveOp(path);
-    if (op && op == caller)
-    {
-        TouchNdnOps.erase(path);
-        return true;
-    }
-    
-    return false;
-}
-    
-}
+#endif /* touchNDN_shared_hpp */

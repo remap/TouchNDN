@@ -26,10 +26,11 @@
 #include <assert.h>
 #include <array>
 #include <map>
+
+#include <touchndn-helper/helper.hpp>
 #include <ndn-cpp/data.hpp>
 
 #include "faceDAT.h"
-#include "touchNDN-shared.hpp"
 #include "key-chain-manager.hpp"
 #include "foundation-helpers.h"
 

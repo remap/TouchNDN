@@ -26,8 +26,9 @@
 #include <queue>
 #include <set>
 
+#include <touchndn-helper/helper.hpp>
+
 #include "CPlusPlus_Common.h"
-#include "touchNDN-shared.hpp"
 
 #define PAR_PAGE_DEFAULT "Custom"
 #define PAR_INIT "Init"

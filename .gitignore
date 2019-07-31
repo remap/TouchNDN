@@ -43,3 +43,23 @@ DerivedData/
 ## TouchDesigner
 *.[0-9]*.toe
 plugins/
+
+## GNU Autotools
+helper/Makefile
+helper/Makefile.in
+helper/aclocal.m4
+helper/autom4te.cache/
+helper/config.*
+helper/configure
+helper/depcomp
+helper/install-sh
+helper/libtool
+helper/ltmain.sh
+helper/m4/
+helper/missing
+helper/stamp-h?
+helper/.deps/
+helper/.dirstamp
+helper/.libs/
+helper/*.l[ao]
+*~
