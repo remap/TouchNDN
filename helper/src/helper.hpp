@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "config.hpp"
 
@@ -34,6 +35,7 @@ namespace touch_ndn {
     void* retrieveOp(std::string path);
     bool updateOp(std::string path, void* caller, std::string newPath);
     bool eraseOp(std::string path, void* caller);
+    std::vector<std::string> getOpList();
 }
 
 #endif /* touchNDN_shared_hpp */

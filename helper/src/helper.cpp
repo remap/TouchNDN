@@ -71,4 +71,12 @@ bool eraseOp(string path, void* caller)
     return false;
 }
 
+vector<string> getOpList()
+{
+    vector<string> opList;
+    for (auto it:TouchNdnOps)
+        opList.push_back(it.first);
+    return opList;
+}
+
 }
