@@ -28,7 +28,6 @@ namespace cnl_cpp {
 
 namespace touch_ndn
 {
-
     class FaceDAT;
     class KeyChainDAT;
     
@@ -74,7 +73,11 @@ private:
     FaceDAT *faceDatOp_;
     KeyChainDAT *keyChainDatOp_;
     std::shared_ptr<cnl_cpp::Namespace> namespace_;
+    bool rawOutput_;
+    typedef std::vector<std::pair<std::string, std::string>> MetaInfoRows;
+    std::shared_ptr<MetaInfoRows> gobjMetaInfoRows_;
     
+    virtual void initPulsed() override;
     virtual void onOpUpdate(OP_Common*, const std::string&) override;
     
     void checkParams(DAT_Output*, const OP_Inputs*, void* reserved) override;
@@ -88,6 +91,7 @@ private:
     
     void runPublish(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
 };
 
 }

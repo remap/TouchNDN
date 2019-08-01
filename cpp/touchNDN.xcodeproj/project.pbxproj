@@ -59,7 +59,7 @@
 		AF5A950122B45A5D00662FAD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = $PROJECT_DIR/plugins;
+			dstPath = "$PROJECT_DIR/touchndn-plugins";
 			dstSubfolderSpec = 0;
 			files = (
 				AF5A950222B45A6D00662FAD /* faceDAT.plugin in CopyFiles */,
@@ -69,7 +69,7 @@
 		AF70153622C42EE8009D35F6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = $PROJECT_DIR/plugins;
+			dstPath = "$PROJECT_DIR/touchndn-plugins";
 			dstSubfolderSpec = 0;
 			files = (
 				AF70154D22C43293009D35F6 /* keyChainDAT.plugin in CopyFiles */,
@@ -100,7 +100,7 @@
 		AFCD77CC22E8DBFC0000302C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = $PROJECT_DIR/plugins;
+			dstPath = "$PROJECT_DIR/touchndn-plugins";
 			dstSubfolderSpec = 0;
 			files = (
 				AFCD77D722E8DE440000302C /* namespaceDAT.plugin in CopyFiles */,

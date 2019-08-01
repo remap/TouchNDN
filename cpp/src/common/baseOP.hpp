@@ -62,11 +62,13 @@ namespace touch_ndn {
         // otherwise -- path treated as a relative to opPath_
         // in either way, path is checked for existing ".." and updated accordingly
         std::string getCanonical(const std::string &path);
+        bool getIsReady() const { return isReady_; }
         
     protected:
         std::vector<OP_Common*> listeners_;
         std::string opName_, opPath_;
         std::string errorString_, warningString_, infoString_;
+        bool isReady_;
         
         // extracts operator path (without name) and operator name from full operator path
         void extractOpName(std::string opFullPath, std::string &opPath, std::string &opName);
@@ -86,6 +88,7 @@ namespace touch_ndn {
         void setWarning(const char *format, ...);
         void setInfo(const char *format, ...);
         void setString(std::string &string, const char* format, va_list args);
+        void setIsReady(bool isReady) { isReady_ = isReady; }
     };
     
     /**
@@ -100,7 +103,8 @@ namespace touch_ndn {
     public:
         BaseOpImpl(const OP_NodeInfo* info)
         : nodeInfo_(info)
-        , executeCount_(0) {
+        , executeCount_(0)
+        {
             extractOpName(info->opPath, opPath_, opName_);
             saveOp(opPath_+opName_, this);
         }
@@ -272,7 +276,6 @@ namespace touch_ndn {
             }
             return false;
         }
-        
         
     private:
         

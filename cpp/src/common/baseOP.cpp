@@ -69,6 +69,7 @@ namespace touch_ndn
     : errorString_("")
     , warningString_("")
     , infoString_("")
+    , isReady_(false)
     {
     }
     
@@ -148,6 +149,8 @@ namespace touch_ndn
         va_start(args, format);
         setString(errorString_, format, args);
         va_end(args);
+        
+        isReady_ = false;
     }
     
     void

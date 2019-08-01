@@ -47,6 +47,8 @@
 #define PAR_HANDLER_TYPE_LABEL "Handler"
 #define PAR_TOP_INPUT "Topinput"
 #define PAR_TOP_INPUT_LABEL "Payload TOP"
+#define PAR_OUTPUT "Output"
+#define PAR_OUTPUT_LABEL "Raw Output"
 
 #define PAR_HANDLER_NONE "Handlernone"
 #define PAR_HANDLER_NONE_LABEL "None"
@@ -112,6 +114,8 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , handlerType_(HandlerType::GObj)
 , faceDatOp_(nullptr)
 , keyChainDatOp_(nullptr)
+, rawOutput_(true)
+, gobjMetaInfoRows_(make_shared<MetaInfoRows>())
 {
 }
 
@@ -140,15 +144,60 @@ NamespaceDAT::execute(DAT_Output* output,
     {
         if (inputs->getNumInputs() || payloadTop_.size())
             runPublish(output, inputs, reserved);
+        else
+        {
+            switch (namespace_->getState()) {
+                // automatically request data
+                case NamespaceState_NAME_EXISTS:
+                {
+                    if (namespace_->getFace_())
+                        runFetch(output, inputs, reserved);
+                }
+                    break;
+                // display data output
+                case NamespaceState_OBJECT_READY:
+                {
+                    setOutput(output, inputs, reserved);
+                }
+                    break;
+                default:
+                    // do nothing
+                    break;
+            }
+        }
     }
+    else
+        output->setText("");
+}
+
+void
+NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved)
+{
+    if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
+        switch (handlerType_)
+        {
+            case HandlerType::None: // fallthrough
+            case HandlerType::GObj:
+                if (rawOutput_)
+                    output->setText(namespace_->getBlobObject().toRawStr().c_str());
+                else
+                    output->setText(BaseDAT::toBase64(namespace_->getBlobObject()).c_str());
+                break;
+            default:
+                break;
+        } // switch
+    else
+        output->setText("");
 }
 
 bool
 NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
     BaseDAT::getInfoDATSize(infoSize, reserved1);
-    
-    infoSize->rows += 2;
+//    int gobjMetaRows =
+//    (namespace_ && gobjContentMetaInfo_  && (handlerType_ == HandlerType::GObj && namespace_->getState() == NamespaceState_OBJECT_READY) ? 3: 0);
+
+    infoSize->rows += 2 + gobjMetaInfoRows_->size();
     infoSize->cols = 2;
     infoSize->byColumn = false;
     
@@ -159,7 +208,9 @@ void
 NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
                                 void* reserved1)
 {
-    if (index < 2)
+//    int gobjMetaRows = (namespace_ && gobjContentMetaInfo_ && (handlerType_ == HandlerType::GObj && namespace_->getState() == NamespaceState_OBJECT_READY) ? 3: 0);
+    int nRows = 2 + (int)gobjMetaInfoRows_->size();
+    if (index < nRows)
     {
         static const map<NamespaceState, string> NamespaceStateMap = {
             { NamespaceState_NAME_EXISTS, "NAME_EXISTS" },
@@ -190,6 +241,9 @@ NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntri
                 entries->values[1]->setString( namespace_ ? NamespaceStateMap.at(namespace_->getState()).c_str() : "n/a" );
                 break;
             default:
+                int i = index - 2;
+                entries->values[0]->setString((*gobjMetaInfoRows_)[i].first.c_str());
+                entries->values[1]->setString((*gobjMetaInfoRows_)[i].second.c_str());
                 break;
         }
     }
@@ -267,6 +321,13 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
      [&](OP_StringParameter &p){
          return manager->appendDAT(p);
      });
+    
+    appendPar<OP_NumericParameter>
+    (manager, PAR_OUTPUT, PAR_OUTPUT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.defaultValues[0] = rawOutput_;
+         return manager->appendToggle(p);
+     });
 }
 
 void
@@ -278,6 +339,12 @@ NamespaceDAT::pulsePressed(const char* name, void* reserved1)
     }
     else
         BaseDAT::pulsePressed(name, reserved1);
+}
+
+void
+NamespaceDAT::initPulsed()
+{
+    namespace_.reset();
 }
 
 void
@@ -309,6 +376,12 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     
     updateIfNew<string>
     (PAR_TOP_INPUT, payloadTop_, getCanonical(inputs->getParString(PAR_TOP_INPUT)));
+    
+    updateIfNew<HandlerType>
+    (PAR_HANDLER_TYPE, handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
+    
+    updateIfNew<bool>
+    (PAR_OUTPUT, rawOutput_, (bool)inputs->getParInt(PAR_OUTPUT));
 }
 
 void
@@ -325,12 +398,18 @@ NamespaceDAT::paramsUpdated()
     runIfUpdated(PAR_KEYCHAINDAT, [this](){
         dispatchOnExecute(bind(&NamespaceDAT::pairKeyChainDatOp, this, _1, _2, _3));
     });
+    
+    runIfUpdated(PAR_OUTPUT, [this](){
+        if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
+            dispatchOnExecute(bind(&NamespaceDAT::setOutput, this, _1, _2, _3));
+    });
 }
 
 void
 NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
 {
     namespace_.reset();
+    setOutput(output, inputs, reserved);
     
     if (!faceDatOp_)
     {
@@ -346,18 +425,21 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
     else
     {// no inputs -- fetching
         
-        if (!prefix_.size())
+        if (faceDatOp_->getFaceProcessor())
         {
-            setError("Namespace requires a prefix");
-            return;
+            if (!prefix_.size())
+            {
+                setError("Namespace requires a prefix");
+                return;
+            }
+            
+            clearError();
+            namespace_ = make_shared<Namespace>(prefix_);
+            shared_ptr<Namespace> nmspc = namespace_;
+            faceDatOp_->getFaceProcessor()->dispatchSynchronized([nmspc](shared_ptr<Face> f){
+                nmspc->setFace(f.get());
+            });
         }
-        
-        clearError();
-        namespace_ = make_shared<Namespace>(prefix_);
-        shared_ptr<Namespace> nmspc = namespace_;
-        faceDatOp_->getFaceProcessor()->dispatchSynchronized([nmspc](shared_ptr<Face> f){
-            nmspc->setFace(f.get());
-        });
     }
 }
 
@@ -447,7 +529,6 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
 {
     if (namespace_ && namespace_->getFace_())
     {
-        cout << "fetch " << namespace_->getName() << endl;
         switch (handlerType_) {
             case HandlerType::None :
                 namespace_->objectNeeded();
@@ -456,7 +537,18 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
                 SegmentedObjectHandler(namespace_.get()).objectNeeded();
                 break;
             case HandlerType::GObj:
-                GeneralizedObjectHandler(namespace_.get()).objectNeeded();
+            {
+                gobjMetaInfoRows_->clear();
+                shared_ptr<MetaInfoRows> metaInfoRows = gobjMetaInfoRows_;
+                bool rawOutput = rawOutput_;
+                GeneralizedObjectHandler(namespace_.get(), [metaInfoRows, rawOutput](const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace&){
+                    metaInfoRows->push_back(pair<string, string>("ContentType", contentMetaInfo->getContentType()));
+                    metaInfoRows->push_back(pair<string, string>("Timestamp", to_string(contentMetaInfo->getTimestamp())));
+                    
+                    string other = (rawOutput ? contentMetaInfo->getOther().toRawStr() : BaseDAT::toBase64(contentMetaInfo->getOther()));
+                    metaInfoRows->push_back(pair<string, string>("Other", other));
+                }).objectNeeded();
+            }
                 break;
             case HandlerType::GObjStream:
                 

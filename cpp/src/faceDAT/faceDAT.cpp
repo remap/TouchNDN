@@ -423,6 +423,7 @@ FaceDAT::initFace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
             clearError();
             faceProcessor_ = make_shared<helpers::FaceProcessor>(hostname);
             faceProcessor_->start();
+            setIsReady(true);
         }
         else
             setError("Can't connect to NFD");
@@ -667,6 +668,7 @@ void FaceDAT::setupKeyChainPairing(DAT_Output* output, const OP_Inputs* inputs, 
         clearKeyChainPairing(output, inputs, reserved);
         keyChainDatOp_ = nullptr;
         clearError();
+        setIsReady(true);
     }
     else if ((keyChainDatOp = retrieveOp(keyChainDat_)))
         {
@@ -677,6 +679,7 @@ void FaceDAT::setupKeyChainPairing(DAT_Output* output, const OP_Inputs* inputs, 
             if (keyChainDatOp_ && keyChainDatOp_->getKeyChainManager())
             {
                 clearError();
+                setIsReady(true);
                 // watch keychain operator events
                 keyChainDatOp_->subscribe(this);
                 
