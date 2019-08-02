@@ -84,6 +84,7 @@ private:
     void paramsUpdated() override;
   
     void initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
+    void releaseNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void pairFaceDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void unpairFaceDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void pairKeyChainDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
