@@ -20,13 +20,49 @@
 
 #include "helper.hpp"
 
+#include <spdlog/async.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 using namespace std;
 using namespace touch_ndn;
 
-map<string, void*> TouchNdnOps;
+#define DEFAULT_FORMAT "%E.%f [%12n] [%^%-8l%$] [thread %t] %!() : %v"
 
-__attribute__((constructor)) void helper_ctor(){}
-__attribute__((destructor)) void helper_dtor(){}
+// logging level
+// could be either:
+// - "trace"
+// - "debug"
+// - "info"
+// - "warn"
+// - "err"
+// - "critical"
+#define TLOG_LEVEL_ENV "TOUCHNDN_LOG_LEVEL"
+#define TLOG_FORMAT_ENV "TOUCHNDN_LOG_FMT"
+#define TLOG_FILE_ENV "TOUCHNDN_LOG_FILE"
+
+namespace touch_ndn {
+    void initLibrary();
+    void initLogger(shared_ptr<spdlog::logger>);
+}
+
+map<string, void*> TouchNdnOps;
+shared_ptr<spdlog::logger> mainLogger;
+string logFile = "";
+string logLevel = "";
+once_flag onceFlag;
+
+struct _LibInitializer {
+    _LibInitializer() {
+        call_once(onceFlag, bind(initLibrary));
+    }
+} libInitializer = {};
+
+__attribute__((constructor)) void helper_ctor(){
+}
+
+__attribute__((destructor)) void helper_dtor(){
+}
 
 namespace touch_ndn
 {
@@ -77,6 +113,64 @@ vector<string> getOpList()
     for (auto it:TouchNdnOps)
         opList.push_back(it.first);
     return opList;
+}
+
+void initLibrary()
+{
+    logLevel = getenv(TLOG_LEVEL_ENV) ? string(getenv(TLOG_LEVEL_ENV)) : "";
+    logFile = getenv(TLOG_FILE_ENV) ? string(getenv(TLOG_FILE_ENV)) : "";
+
+    if (logFile != "")
+        mainLogger = spdlog::basic_logger_mt<spdlog::async_factory>("main", logFile);
+    else
+        mainLogger = spdlog::stdout_color_mt("main");
+
+    spdlog::set_pattern(getenv(TLOG_FORMAT_ENV) ? getenv(TLOG_FORMAT_ENV) : DEFAULT_FORMAT);
+    initLogger(mainLogger);
+
+    spdlog::flush_every(std::chrono::seconds(3));
+    spdlog::set_default_logger(mainLogger);
+
+    TLOG_INFO("Initialized TouchNDN logging: level {0} file {1}", logLevel, logFile);
+    spdlog::default_logger()->flush();
+}
+
+void initLogger(shared_ptr<spdlog::logger> logger)
+{
+    logger->flush_on(spdlog::level::err);
+    if (logLevel == "")
+#ifdef DEBUG
+        logLevel = "trace";
+#else
+        logLevel = "info";
+#endif
+    logger->set_level(spdlog::level::from_str(logLevel));
+    logger->info("Initialized logger {}: level {} file {}",  logger->name(),
+        spdlog::level::to_short_c_str(logger->level()), logFile);
+    logger->flush();
+}
+
+void newLogger(std::string loggerName)
+{
+    shared_ptr<spdlog::logger> logger;
+
+    if (logFile != "")
+        logger = spdlog::basic_logger_mt<spdlog::async_factory>(loggerName, logFile);
+    else
+        logger = spdlog::stdout_color_mt(loggerName);
+
+    initLogger(logger);
+}
+
+shared_ptr<spdlog::logger> getLogger(string loggerName)
+{
+    auto logger = spdlog::get(loggerName);
+    return logger;
+}
+
+void flushLogger(std::string loggerName)
+{
+    spdlog::get(loggerName)->flush();
 }
 
 }
