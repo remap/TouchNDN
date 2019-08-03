@@ -22,7 +22,14 @@
 #define keyChainDAT_external_hpp
 
 #include <stdio.h>
+#include <touchndn-helper/helper.hpp>
+
 #include "CPlusPlus_Common.h"
 #include "DAT_CPlusPlusBase.h"
+
+namespace touch_ndn {
+    std::shared_ptr<helpers::logger> getModuleLogger();
+}
+
 
 #endif /* keyChainDAT_external_hpp */

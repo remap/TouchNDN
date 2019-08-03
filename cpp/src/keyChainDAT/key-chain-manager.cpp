@@ -39,6 +39,7 @@
 #include <ndn-cpp/security/signing-info.hpp>
 #include <ndn-cpp/util/memory-content-cache.hpp>
 #include <ndn-cpp/face.hpp>
+#include <touchndn-helper/helper.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -47,6 +48,10 @@ using namespace touch_ndn::helpers;
 
 static const char *PublicDb = "pib.db";
 static const char *PrivateDb = "ndnsec-key-file";
+
+namespace touch_ndn {
+    extern shared_ptr<helpers::logger> getModuleLogger();
+}
 
 shared_ptr<KeyChain>
 KeyChainManager::createKeyChain(string storagePath)
@@ -95,14 +100,14 @@ runTime_(instanceCertLifetime)
 {
 	if (configPolicy != "")
 	{
-		cout << "Setting up file-based policy manager from " << configPolicy << endl;
+        getModuleLogger()->info("Setting up file-based policy manager from {}", configPolicy);
 
 		checkExists(configPolicy);
 		setupConfigPolicyManager();
 	}
 	else
 	{
-		cout << "Setting self-verify policy manager..." << endl;
+        getModuleLogger()->info("Setting self-verify policy manager...");
 
 		identityStorage_ = make_shared<MemoryIdentityStorage>();
 		privateKeyStorage_ = make_shared<MemoryPrivateKeyStorage>();
@@ -134,7 +139,7 @@ void KeyChainManager::setupInstanceKeyChain()
     if (find(identities.begin(), identities.end(), signingIdentity) == identities.end())
     {
         // create signing identity in default keychain
-        cout << "Signing identity not found. Creating..." << endl;
+        getModuleLogger()->info("Signing identity not found. Creating...");
         createSigningIdentity();
     }
 
@@ -176,10 +181,10 @@ void KeyChainManager::createSigningIdentity()
     // create self-signed certificate
     Name cert = defaultKeyChain_->createIdentityAndCertificate(Name(signingIdentity_));
 
-	cout << "Generated identity " << signingIdentity_ << " (certificate name "
-		<< cert << ")" << endl;
-	cout << "Check policy config file for correct trust anchor (run `ndnsec-dump-certificate -i "
-		<< signingIdentity_  << " > signing.cert` if needed)" << endl;
+    getModuleLogger()->info("Generated identity {} (certificate name {})", signingIdentity_, cert.toUri());
+	getModuleLogger()->info("Check policy config file for correct trust anchor "
+                            "(run `ndnsec-dump-certificate -i {} > signing.cert` if needed)",
+                            signingIdentity_);
 }
 
 void KeyChainManager::createMemoryKeychain()
@@ -202,13 +207,13 @@ void KeyChainManager::createInstanceIdentity()
     instanceIdentity.append(instanceName_);
     instanceIdentity_ = instanceIdentity.toUri();
 
-    cout << "Instance identity " << instanceIdentity << endl;
+    getModuleLogger()->info("Instance identity {}", instanceIdentity.toUri());
 
     Name instanceKeyName = instanceKeyChain_->generateRSAKeyPairAsDefault(instanceIdentity, true);
     Name signingCert = defaultKeyChain_->getIdentityManager()->getDefaultCertificateNameForIdentity(Name(signingIdentity_));
 
-	cout << "Instance key " << instanceKeyName << endl;
-	cout << "Signing certificate " << signingCert << endl;
+    getModuleLogger()->info("Instance key {}", instanceKeyName.toUri());
+    getModuleLogger()->info("Signing certificate {}", signingCert.toUri());
 
     vector<CertificateSubjectDescription> subjectDescriptions;
     instanceCert_ =
@@ -225,8 +230,9 @@ void KeyChainManager::createInstanceIdentity()
     instanceKeyChain_->setDefaultCertificateForKey(*instanceCert_);
     instanceKeyChain_->getIdentityManager()->setDefaultIdentity(instanceIdentity);
 
-	cout << "Instance certificate "
-		<< instanceKeyChain_->getIdentityManager()->getDefaultCertificateNameForIdentity(Name(instanceIdentity)) << endl;
+    getModuleLogger()->info("Instance certificate {}",
+                            instanceKeyChain_->getIdentityManager()->
+                                getDefaultCertificateNameForIdentity(Name(instanceIdentity)).toUri());
 }
 
 void KeyChainManager::createInstanceIdentityV2()
@@ -239,7 +245,7 @@ void KeyChainManager::createInstanceIdentityV2()
     instanceIdentity.append(instanceName_);
     instanceIdentity_ = instanceIdentity.toUri();
 
-    cout << "Instance identity " << instanceIdentity << endl;
+    getModuleLogger()->info("Instance identity {}", instanceIdentity.toUri());
 
 	shared_ptr<PibIdentity> instancePibIdentity =
       instanceKeyChain_->createIdentityV2(instanceIdentity);
@@ -249,8 +255,8 @@ void KeyChainManager::createInstanceIdentityV2()
       .getIdentity(Name(signingIdentity_))->getDefaultKey();
 	Name signingCert = signingPibKey->getDefaultCertificate()->getName();
 
-	cout << "Instance key " << instancePibKey->getName() << endl;
-	cout << "Signing certificate " << signingCert << endl;
+    getModuleLogger()->info("Instance key {}", instancePibKey->getName().toUri());
+    getModuleLogger()->info("Signing certificate {}", signingCert.toUri());
 
     // Prepare the instance certificate.
     shared_ptr<CertificateV2> instanceCertificate(new CertificateV2());
@@ -273,9 +279,9 @@ void KeyChainManager::createInstanceIdentityV2()
     instanceKeyChain_->setDefaultIdentity(*instancePibIdentity);
     instanceCert_ = instanceCertificate;
 
-	cout << "Instance certificate "
-		<< instanceKeyChain_->getPib().getIdentity(Name(instanceIdentity_))
-          ->getDefaultKey()->getDefaultCertificate()->getName() << endl;
+    getModuleLogger()->info("Instance certificate {}",
+                           instanceKeyChain_->getPib().getIdentity(Name(instanceIdentity_))->
+                            getDefaultKey()->getDefaultCertificate()->getName().toUri());
 }
 
 void KeyChainManager::checkExists(const string& file)

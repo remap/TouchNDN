@@ -22,5 +22,10 @@
 #define faceDAT_external_hpp
 
 #include <stdio.h>
+#include <touchndn-helper/helper.hpp>
+
+namespace touch_ndn {
+    std::shared_ptr<helpers::logger> getModuleLogger();
+}
 
 #endif /* faceDAT_external_hpp */

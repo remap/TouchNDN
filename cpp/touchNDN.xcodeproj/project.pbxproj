@@ -46,6 +46,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AF97EA6622F5667800F1D604 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E227270721B6EE9A00905532 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E227270E21B6EE9A00905532;
+			remoteInfo = faceDAT;
+		};
+		AF97EA6822F5667A00F1D604 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E227270721B6EE9A00905532 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AF70152A22C42EE8009D35F6;
+			remoteInfo = keyChainDAT;
+		};
 		AF9A337322E0F2370070C803 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E227270721B6EE9A00905532 /* Project object */;
@@ -391,6 +405,8 @@
 			buildRules = (
 			);
 			dependencies = (
+				AF97EA6722F5667800F1D604 /* PBXTargetDependency */,
+				AF97EA6922F5667A00F1D604 /* PBXTargetDependency */,
 			);
 			name = namespaceDAT;
 			productName = CPlusPlusDATExample;
@@ -567,6 +583,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AF97EA6722F5667800F1D604 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E227270E21B6EE9A00905532 /* faceDAT */;
+			targetProxy = AF97EA6622F5667800F1D604 /* PBXContainerItemProxy */;
+		};
+		AF97EA6922F5667A00F1D604 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AF70152A22C42EE8009D35F6 /* keyChainDAT */;
+			targetProxy = AF97EA6822F5667A00F1D604 /* PBXContainerItemProxy */;
+		};
 		AF9A337422E0F2370070C803 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AF70152A22C42EE8009D35F6 /* keyChainDAT */;

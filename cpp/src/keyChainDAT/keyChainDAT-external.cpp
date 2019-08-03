@@ -21,6 +21,9 @@
 #include "keyChainDAT-external.hpp"
 #include "keyChainDAT.h"
 
+#define MODULE_LOGGER "keyChainDAT"
+
+using namespace std;
 using namespace touch_ndn;
 
 // These functions are basic C function, which the DLL loader can find
@@ -29,6 +32,13 @@ using namespace touch_ndn;
 // you are creating
 extern "C"
 {
+    __attribute__((constructor)) void lib_ctor() {
+        newLogger(MODULE_LOGGER);
+    }
+    
+    __attribute__((destructor)) void lib_dtor() {
+        flushLogger(MODULE_LOGGER);
+    }
     
     DLLEXPORT
     void
@@ -62,3 +72,11 @@ extern "C"
     }
     
 };
+
+
+namespace touch_ndn {
+    shared_ptr<helpers::logger> getModuleLogger()
+    {
+        return getLogger(MODULE_LOGGER);
+    }
+}

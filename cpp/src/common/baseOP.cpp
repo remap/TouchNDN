@@ -24,6 +24,8 @@ using namespace std;
 
 namespace touch_ndn
 {
+    extern shared_ptr<spdlog::logger> getModuleLogger();
+    
     namespace helpers
     {
         
@@ -70,6 +72,7 @@ namespace touch_ndn
     , warningString_("")
     , infoString_("")
     , isReady_(false)
+    , logger_(getModuleLogger())
     {
     }
     

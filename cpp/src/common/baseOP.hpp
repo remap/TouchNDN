@@ -36,6 +36,30 @@
 
 #define OP_EVENT_DESTROY "destroy"
 
+// helper macro for logging from within the TouchNDN operators
+// these can only be called from within the OP_Common or derived
+#define OPLOG_TRACE(...) OPLOG_HELPER(TRACE, __VA_ARGS__)
+#define OPLOG_DEBUG(...) OPLOG_HELPER(DEBUG, __VA_ARGS__)
+#define OPLOG_INFO(...) OPLOG_HELPER(INFO, __VA_ARGS__)
+#define OPLOG_WARN(...) OPLOG_HELPER(WARN, __VA_ARGS__)
+#define OPLOG_ERROR(...) OPLOG_HELPER(ERROR, __VA_ARGS__)
+#define OPLOG_CRITICAL(...) OPLOG_HELPER(CRITICAL, __VA_ARGS__)
+
+#define OPLOG_HELPER(LEVEL, ...) TLOG_LOGGER_##LEVEL(logger_,("["+getFullPath() +"] " + FIRST(__VA_ARGS__)).c_str() REST(__VA_ARGS__) )
+
+// https://stackoverflow.com/a/11172679/846340
+#define FIRST(...) FIRST_HELPER(__VA_ARGS__, throwaway)
+#define FIRST_HELPER(first, ...) first
+#define REST(...) REST_HELPER(NUM(__VA_ARGS__), __VA_ARGS__)
+#define REST_HELPER(qty, ...) REST_HELPER2(qty, __VA_ARGS__)
+#define REST_HELPER2(qty, ...) REST_HELPER_##qty(__VA_ARGS__)
+#define REST_HELPER_ONE(first)
+#define REST_HELPER_TWOORMORE(first, ...) , __VA_ARGS__
+#define NUM(...) \
+SELECT_10TH(__VA_ARGS__, TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE,\
+TWOORMORE, TWOORMORE, TWOORMORE, TWOORMORE, ONE, throwaway)
+#define SELECT_10TH(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, ...) a10
+
 namespace touch_ndn {
     
     namespace helpers {
@@ -63,8 +87,10 @@ namespace touch_ndn {
         // in either way, path is checked for existing ".." and updated accordingly
         std::string getCanonical(const std::string &path);
         bool getIsReady() const { return isReady_; }
+        std::string getFullPath() const { return opPath_ + opName_; }
         
     protected:
+        std::shared_ptr<spdlog::logger> logger_;
         std::vector<OP_Common*> listeners_;
         std::string opName_, opPath_;
         std::string errorString_, warningString_, infoString_;

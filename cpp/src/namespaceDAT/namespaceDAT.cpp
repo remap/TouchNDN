@@ -37,6 +37,8 @@
 #include "key-chain-manager.hpp"
 #include "face-processor.hpp"
 
+#define MODULE_LOGGER "namespaceDAT"
+
 #define PAR_PREFIX "Prefix"
 #define PAR_PREFIX_LABEL "Prefix"
 #define PAR_FACEDAT "Facedat"
@@ -77,37 +79,51 @@ const map<string, NamespaceDAT::HandlerType> HandlerTypeMap = {
     { PAR_HANDLER_GOSTREAM, NamespaceDAT::HandlerType::GObjStream },
 };
 
+namespace touch_ndn {
+    shared_ptr<helpers::logger> getModuleLogger()
+    {
+        return getLogger(MODULE_LOGGER);
+    }
+}
+
 extern "C"
 {
-
-DLLEXPORT
-void
-FillDATPluginInfo(DAT_PluginInfo *info)
-{
-	info->apiVersion = DATCPlusPlusAPIVersion;
-	info->customOPInfo.opType->setString("Ndnnamespace");
-	info->customOPInfo.opLabel->setString("Namespace DAT");
-	info->customOPInfo.opIcon->setString("NDT");
-	info->customOPInfo.authorName->setString("Peter Gusev");
-	info->customOPInfo.authorEmail->setString("peter@remap.ucla.edu");
-	info->customOPInfo.minInputs = 0;
-	info->customOPInfo.maxInputs = 1;
-}
-
-DLLEXPORT
-DAT_CPlusPlusBase*
-CreateDATInstance(const OP_NodeInfo* info)
-{
-	return new NamespaceDAT(info);
-}
-
-DLLEXPORT
-void
-DestroyDATInstance(DAT_CPlusPlusBase* instance)
-{
-	delete (    NamespaceDAT*)instance;
-}
-
+    __attribute__((constructor)) void lib_ctor() {
+        newLogger(MODULE_LOGGER);
+    }
+    
+    __attribute__((destructor)) void lib_dtor() {
+        flushLogger(MODULE_LOGGER);
+    }
+    
+    DLLEXPORT
+    void
+    FillDATPluginInfo(DAT_PluginInfo *info)
+    {
+        info->apiVersion = DATCPlusPlusAPIVersion;
+        info->customOPInfo.opType->setString("Ndnnamespace");
+        info->customOPInfo.opLabel->setString("Namespace DAT");
+        info->customOPInfo.opIcon->setString("NDT");
+        info->customOPInfo.authorName->setString("Peter Gusev");
+        info->customOPInfo.authorEmail->setString("peter@remap.ucla.edu");
+        info->customOPInfo.minInputs = 0;
+        info->customOPInfo.maxInputs = 1;
+    }
+    
+    DLLEXPORT
+    DAT_CPlusPlusBase*
+    CreateDATInstance(const OP_NodeInfo* info)
+    {
+        return new NamespaceDAT(info);
+    }
+    
+    DLLEXPORT
+    void
+    DestroyDATInstance(DAT_CPlusPlusBase* instance)
+    {
+        delete (    NamespaceDAT*)instance;
+    }
+    
 };
 
 NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
@@ -119,10 +135,12 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , rawOutput_(true)
 , gobjMetaInfoRows_(make_shared<MetaInfoRows>())
 {
+    OPLOG_DEBUG("Created NamespaceDAT");
 }
 
 NamespaceDAT::~NamespaceDAT()
 {
+    OPLOG_DEBUG("Released NamespaceDAT");
 }
 
 void
@@ -454,11 +472,20 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
             MetaInfo metaInfo;
             metaInfo.setFreshnessPeriod(freshness_);
             namespace_->setNewDataMetaInfo(metaInfo);
+            OPLOG_DEBUG("Created producer namespace {}", namespace_->getName().toUri());
         }
+        else
+            OPLOG_DEBUG("Created consumer namespace {}", namespace_->getName().toUri());
         
+        shared_ptr<helpers::logger> logger = logger_;
         shared_ptr<Namespace> nmspc = namespace_;
-        faceDatOp_->getFaceProcessor()->dispatchSynchronized([nmspc](shared_ptr<Face> f){
-            nmspc->setFace(f.get());
+        faceDatOp_->getFaceProcessor()->dispatchSynchronized([isProducer,nmspc,logger](shared_ptr<Face> f){
+            if (isProducer)
+                nmspc->setFace(f.get(), [logger](const shared_ptr<const Name>&n){
+                    logger->error("Failed to register prefix {}", n->toUri());
+                });
+            else
+                nmspc->setFace(f.get());
         });
     }
 }
@@ -490,7 +517,10 @@ NamespaceDAT::pairFaceDatOp(DAT_Output *output, const OP_Inputs *inputs, void *r
         err = (faceDatOp_ ? 0 : 1);
         
         if (faceDatOp_)
+        {
             faceDatOp_->subscribe(this);
+            OPLOG_DEBUG("Paired FaceDAT {}", faceDatOp_->getFullPath());
+        }
     }
     
     if (err)
@@ -505,6 +535,7 @@ NamespaceDAT::unpairFaceDatOp(DAT_Output *output, const OP_Inputs *inputs, void 
         releaseNamespace(output, inputs, reserved);
         faceDatOp_->unsubscribe(this);
         faceDatOp_ = nullptr;
+        OPLOG_DEBUG("Unpaired FaceDAT");
     }
 }
 
@@ -526,7 +557,10 @@ NamespaceDAT::pairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, voi
         err = (keyChainDatOp_ ? 0 : 1);
         
         if (keyChainDatOp_)
+        {
             keyChainDatOp_->subscribe(this);
+            OPLOG_DEBUG("Paired KeyChainDAT {}", keyChainDatOp_->getFullPath());
+        }
     }
     
     if (err)
@@ -544,6 +578,7 @@ NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, v
         
         keyChainDatOp_->unsubscribe(this);
         keyChainDatOp_ = nullptr;
+        OPLOG_DEBUG("Unpaired KeyChainDAT");
     }
 }
 
@@ -581,10 +616,18 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
         }
         
         clearError();
+        
+        OPLOG_DEBUG("Published data under {}", namespace_->getName().toUri());
+#ifdef DEBUG
+        vector<shared_ptr<Data>> allData;
+        namespace_->getAllData(allData);
+        for (auto d:allData) OPLOG_TRACE("{}", d->getName().toUri());
+#endif
     }
     catch (std::runtime_error &e)
     {
         setError(e.what());
+        OPLOG_ERROR("Error while publishing: {}", e.what());
     }
 }
 
@@ -595,9 +638,11 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
     {
         case HandlerType::None :
             namespace_->objectNeeded();
+            OPLOG_DEBUG("Data packet requested: {}", namespace_->getName().toUri());
             break;
         case HandlerType::Segmented:
             SegmentedObjectHandler(namespace_.get()).objectNeeded();
+            OPLOG_DEBUG("Segmented data requested {}", namespace_->getName().toUri());
             break;
         case HandlerType::GObj:
         {
@@ -611,6 +656,7 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
                 string other = (rawOutput ? contentMetaInfo->getOther().toRawStr() : BaseDAT::toBase64(contentMetaInfo->getOther()));
                 metaInfoRows->push_back(pair<string, string>("Other", other));
             }).objectNeeded();
+            OPLOG_DEBUG("Generalized Object requested {}", namespace_->getName().toUri());
         }
             break;
         case HandlerType::GObjStream:

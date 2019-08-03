@@ -34,6 +34,7 @@
 #include <ndn-cpp/key-locator.hpp>
 #include <ndn-cpp/security/key-chain.hpp>
 
+#include "faceDAT-external.hpp"
 #include "face-processor.hpp"
 #include "keyChainDAT.h"
 #include "key-chain-manager.hpp"
@@ -139,10 +140,9 @@ FaceDAT::FaceDAT(const OP_NodeInfo* info)
 , keyChainDat_("")
 , keyChainDatOp_(nullptr)
 {
-//    for (auto p : OutputLabels)
-//        currentOutputs_.insert(p.first);
     currentOutputs_ = {PAR_OUT_HEADERS, PAR_OUT_DRD, PAR_OUT_INTEREST, PAR_OUT_DATA_NAME, PAR_OUT_PAYLOAD_SIZE, PAR_OUT_STATUS, PAR_OUT_RAWSTR};
     dispatchOnExecute(bind(&FaceDAT::initFace, this, _1, _2, _3));
+    OPLOG_DEBUG("Created FaceDAT");
 }
 
 FaceDAT::~FaceDAT()
@@ -150,6 +150,7 @@ FaceDAT::~FaceDAT()
     cancelRequests();
     clearKeyChainPairing(nullptr, nullptr, nullptr);
     doCleanup();
+    OPLOG_DEBUG("Released FaceDAT");
 }
 
 void
@@ -197,7 +198,7 @@ FaceDAT::execute(DAT_Output* output, const OP_Inputs* inputs, void* reserved)
                     }
                     catch (std::exception &e)
                     {
-                        cout << "Exception " << e.what() << endl;
+                        OPLOG_ERROR("Exception {0}", e.what());
                     }
                 }
                 
@@ -431,6 +432,7 @@ FaceDAT::initFace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
     catch (std::runtime_error &e)
     {
         setError("Can't connect to NFD");
+        OPLOG_ERROR("Can't connect to NFD");
     }
 }
 
@@ -438,8 +440,6 @@ void
 FaceDAT::checkParams(DAT_Output *, const OP_Inputs *inputs,
                      void *reserved)
 {
-    
-    
     updateIfNew<string>
     (PAR_NFD_HOST, nfdHost_, inputs->getParString(PAR_NFD_HOST));
     
@@ -500,8 +500,9 @@ void
 FaceDAT::express(shared_ptr<Interest> &i, bool clearTable)
 {
     shared_ptr<RequestsTable> rt = requestsTable_;
+    shared_ptr<helpers::logger> logger = logger_;
     nExpressed_++;
-    faceProcessor_->dispatchSynchronized([i, rt, clearTable](shared_ptr<Face> f){
+    faceProcessor_->dispatchSynchronized([i, rt, clearTable, logger](shared_ptr<Face> f){
         if (clearTable)
             rt->acquire([](RequestsDict &d){
                 d.clear();
@@ -510,17 +511,17 @@ FaceDAT::express(shared_ptr<Interest> &i, bool clearTable)
         // NOTE: callbacks are called on Face thread!
         rt->cancelIfPending(*i, *f);
         uint64_t piId = f->expressInterest(*i,
-                           [rt](const shared_ptr<const Interest>& i, const shared_ptr<Data>& d){
-                               cout << "data    " << i->getName() << endl;
+                           [rt,logger](const shared_ptr<const Interest>& i, const shared_ptr<Data>& d){
                                rt->setData(i, d);
+                               logger->trace("Received data {0}", d->getName().toUri());
                            },
-                           [rt](const shared_ptr<const Interest>& i){
-                               cout << "timeout " << i->getName() << endl;
+                           [rt,logger](const shared_ptr<const Interest>& i){
                                rt->setTimeout(i);
+                               logger->trace("Timeout {}", i->getName().toUri());
                            },
-                           [rt](const shared_ptr<const Interest>& i, const shared_ptr<NetworkNack>& nack){
-                               cout << "nack    " << i->getName() << endl;
+                           [rt,logger](const shared_ptr<const Interest>& i, const shared_ptr<NetworkNack>& nack){
                                rt->setNack(i, nack);
+                               logger->trace("Nack {}", i->getName().toUri());
                            });
         assert(rt->setExpressed(i, piId));
     });
@@ -530,13 +531,15 @@ void
 FaceDAT::cancelRequests()
 {
     // cancel all pending requests and quit
+    shared_ptr<helpers::logger> logger = logger_;
     shared_ptr<RequestsTable> rt = requestsTable_;
-    if (faceProcessor_) faceProcessor_->dispatchSynchronized([rt](shared_ptr<Face> f){
+    if (faceProcessor_) faceProcessor_->dispatchSynchronized([rt,logger](shared_ptr<Face> f){
             rt->acquire([&](RequestsDict &d){
                 for (auto it : d)
                 {
                     f->removePendingInterest(it.second.pitId_);
                     it.second.isCanceled_ = true;
+                    logger->trace("Canceled pending {0}", it.first);
                 }
             });
         });
@@ -703,6 +706,8 @@ void FaceDAT::clearKeyChainPairing(DAT_Output *, const OP_Inputs *, void *reserv
 {
     if (keyChainDatOp_)
     {
+        OPLOG_DEBUG("Clear KeyChainDAT");
+        
         shared_ptr<helpers::KeyChainManager> kcm = keyChainDatOp_->getKeyChainManager();
         uint64_t signingCertRegId = signingCertRegId_;
         uint64_t instanceCertRegId = instanceCertRegId_;
@@ -744,10 +749,11 @@ void FaceDAT::registerCertPrefixes(std::shared_ptr<ndn::Face> face, std::shared_
             };
     OnRegisterFailed onRegisterFailed = [this](const shared_ptr<const Name>& n){
         this->setError("Failed to register prefix: %s", n->toUri().c_str());
+        OPLOG_ERROR("Failed to register prefix: {}", n->toUri());
     };
     OnRegisterSuccess onRegisterSuccess = [this](const shared_ptr<const Name>&n, uint64_t id){
-        cout << "Registered prefix " << n->toUri() << endl;
         this->registeredPrefixes_[id] = n->toUri();
+        OPLOG_INFO("Registered prefix {0}", n->toUri());
     };
     
     signingCertRegId_ = face->registerPrefix(signingCert->getName(), onCertInterest, onRegisterFailed, onRegisterSuccess);

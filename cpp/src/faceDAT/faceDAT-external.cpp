@@ -21,10 +21,19 @@
 #include "faceDAT-external.hpp"
 #include "faceDAT.h"
 
+#define MODULE_LOGGER "FaceDAT"
+
 using namespace touch_ndn;
 
 extern "C"
 {
+    __attribute__((constructor)) void lib_ctor() {
+        newLogger(MODULE_LOGGER);
+    }
+    
+    __attribute__((destructor)) void lib_dtor() {
+        flushLogger(MODULE_LOGGER);
+    }
     
     DLLEXPORT
     void
@@ -55,3 +64,10 @@ extern "C"
     }
     
 };
+
+namespace touch_ndn {
+    std::shared_ptr<helpers::logger> getModuleLogger()
+    {
+        return getLogger(MODULE_LOGGER);
+    }
+}

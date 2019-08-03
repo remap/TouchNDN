@@ -62,10 +62,12 @@ KeyChainDAT::KeyChainDAT(const OP_NodeInfo* info)
 , keyChainType_(KeyChainType::Embedded)
 {
     dispatchOnExecute(bind(&KeyChainDAT::initKeyChain, this, _1, _2, _3));
+    OPLOG_DEBUG("Created KeyChainDAT");
 }
 
 KeyChainDAT::~KeyChainDAT()
 {
+    OPLOG_DEBUG("Released KeyChainDAT");
 }
 
 void
