@@ -146,7 +146,7 @@ NamespaceDAT::~NamespaceDAT()
 void
 NamespaceDAT::getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1)
 {
-    BaseDAT::getGeneralInfo(ginfo, inputs, reserved1);
+    ginfo->cookEveryFrame = false;
     ginfo->cookEveryFrameIfAsked = true;
 }
 

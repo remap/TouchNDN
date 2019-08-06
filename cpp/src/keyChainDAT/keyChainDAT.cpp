@@ -91,6 +91,14 @@ KeyChainDAT::getInfoCHOPChan(int32_t index,
     BaseDAT::getInfoCHOPChan(index, chan, reserved1);
 }
 
+void
+KeyChainDAT::getGeneralInfo(DAT_GeneralInfo *ginfo,
+                             const OP_Inputs *inputs, void *reserved1)
+{
+    ginfo->cookEveryFrame = false;
+    ginfo->cookEveryFrameIfAsked = false;
+}
+
 bool
 KeyChainDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {

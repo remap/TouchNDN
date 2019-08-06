@@ -49,6 +49,8 @@ namespace touch_ndn {
                                     const OP_Inputs*,
                                     void* reserved) override;
         
+        virtual void        getGeneralInfo(DAT_GeneralInfo *ginfo,
+                                           const OP_Inputs *inputs, void *reserved1) override;
         
         virtual int32_t		getNumInfoCHOPChans(void* reserved1) override;
         virtual void		getInfoCHOPChan(int index,

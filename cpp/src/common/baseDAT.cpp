@@ -43,9 +43,8 @@ BaseDAT::~BaseDAT()
 void
 BaseDAT::getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1)
 {
-    ginfo->cookEveryFrame = false;
-    // TODO: watch this and change, if needed
-    ginfo->cookEveryFrameIfAsked = false;
+    ginfo->cookEveryFrame = true;
+    ginfo->cookEveryFrameIfAsked = true;
 }
 
 std::string
