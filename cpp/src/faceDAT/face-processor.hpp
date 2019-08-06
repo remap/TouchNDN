@@ -59,6 +59,10 @@ namespace touch_ndn {
             // Returns true if processing is running, false otherwise
             bool isProcessing();
             
+            // Returns last timestamp when processEvents() was called on the face
+            // in milliseconds
+            uint64_t getLastProcessingCallTimestamp() const;
+            
             // Returns io_service for the processing thread.
             //boost::asio::io_service& getIo();
             

@@ -26,7 +26,7 @@
 #include <ndn-cpp/security/pib/pib-memory.hpp>
 #include <ndn-cpp/security/tpm/tpm-back-end-memory.hpp>
 
-#define USE_THREADSAFE_FACE
+//#define USE_THREADSAFE_FACE
 
 using namespace ndn;
 using namespace std;
@@ -43,6 +43,7 @@ namespace touch_ndn {
             void start();
             void stop();
             bool isProcessing();
+            uint64_t getLastProcessingCallTimestamp() const { return processEventsTimestamp_; }
 
             // non blocking
             void dispatchSynchronized(function<void(shared_ptr<ndn::Face>)> dispatchBlock);
@@ -54,8 +55,9 @@ namespace touch_ndn {
 
             io_service& getIo() { return io_; }
             shared_ptr<Face> getFace() { return face_; }
-
+            
         private:
+            uint64_t processEventsTimestamp_;
             std::string host_;
             shared_ptr<Face> face_;
             thread t_;
@@ -134,6 +136,7 @@ FaceProcessor::~FaceProcessor() {
 void FaceProcessor::start() { pimpl_->start(); }
 void FaceProcessor::stop() { pimpl_->stop(); }
 bool FaceProcessor::isProcessing() { return pimpl_->isProcessing(); }
+uint64_t FaceProcessor::getLastProcessingCallTimestamp() const { return pimpl_->getLastProcessingCallTimestamp(); }
 void FaceProcessor::dispatchSynchronized(function<void (shared_ptr<Face>)> dispatchBlock)
 {
     return pimpl_->dispatchSynchronized(dispatchBlock);
@@ -174,7 +177,10 @@ void FaceProcessor::registerPrefixBlocking(const ndn::Name& prefix,
 }
 
 //******************************************************************************
-FaceProcessorImpl::FaceProcessorImpl(std::string host):host_(host), isRunningFace_(false)
+FaceProcessorImpl::FaceProcessorImpl(std::string host)
+: host_(host)
+, isRunningFace_(false)
+, processEventsTimestamp_(0)
 {
 }
 
@@ -295,9 +301,10 @@ void FaceProcessorImpl::runFace()
                 self->io_.run();
                 self->isRunningFace_ = false;
 #else
-                self->io_.poll_one();
+                self->io_.poll();
                 self->io_.reset();
                 self->face_->processEvents();
+                self->processEventsTimestamp_ = ndn_getNowMilliseconds();
 #endif
             }
             catch (std::exception &e) {

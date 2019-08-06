@@ -423,7 +423,6 @@ FaceDAT::initFace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
         {
             clearError();
             faceProcessor_ = make_shared<helpers::FaceProcessor>(hostname);
-            faceProcessor_->start();
             setIsReady(true);
         }
         else
@@ -446,7 +445,14 @@ FaceDAT::checkParams(DAT_Output *, const OP_Inputs *inputs,
     if (faceProcessor_)
     {
         updateIfNew<string>
-        (PAR_KEYCHAIN_DAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAIN_DAT)));
+        (PAR_KEYCHAIN_DAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAIN_DAT)),
+         [this](string &p){
+             // custom condition for update check:
+             // if existing value keyChainDat_ not equal to the new value
+             // OR
+             // if there's a non-zero new value and keyChainDatOp_ was not set up
+             return (p != keyChainDat_) || (keyChainDatOp_ == nullptr && p.size());
+         });
     }
     
     currentOutputs_.clear();
@@ -681,6 +687,8 @@ void FaceDAT::setupKeyChainPairing(DAT_Output* output, const OP_Inputs* inputs, 
             
             if (keyChainDatOp_ && keyChainDatOp_->getKeyChainManager())
             {
+                OPLOG_DEBUG("Paired KeyChainDAT {}", keyChainDat_);
+                
                 clearError();
                 setIsReady(true);
                 // watch keychain operator events
@@ -756,10 +764,14 @@ void FaceDAT::registerCertPrefixes(std::shared_ptr<ndn::Face> face, std::shared_
         OPLOG_INFO("Registered prefix {0}", n->toUri());
     };
     
+    OPLOG_DEBUG("Registering prefix {}...", signingCert->getName().toUri());
     signingCertRegId_ = face->registerPrefix(signingCert->getName(), onCertInterest, onRegisterFailed, onRegisterSuccess);
     
     if (!signingCert->getName().isPrefixOf(instanceCert->getName()))
+    {
+        OPLOG_DEBUG("Registering prefix {}...", instanceCert->getName().toUri());
         instanceCertRegId_ = face->registerPrefix(instanceCert->getName(), onCertInterest, onRegisterFailed, onRegisterSuccess);
+    }
     else
         instanceCertRegId_ = signingCertRegId_;
 }
