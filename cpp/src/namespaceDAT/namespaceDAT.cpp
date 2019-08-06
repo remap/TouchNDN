@@ -206,12 +206,13 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
         output->setText("");
 }
 
+#define NDEFAULT_ROWS 3
 bool
 NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
     BaseDAT::getInfoDATSize(infoSize, reserved1);
     int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
-    int nDefaultRows = 2 + packetsRow;
+    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
     
     infoSize->rows += nDefaultRows + gobjMetaInfoRows_->size();
     infoSize->cols = 2;
@@ -225,7 +226,7 @@ NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntri
                                 void* reserved1)
 {
     int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
-    int nDefaultRows = 2 + packetsRow;
+    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
     int nRows = nDefaultRows + (int)gobjMetaInfoRows_->size();
     if (index < nRows)
     {
@@ -258,6 +259,10 @@ NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntri
                 entries->values[1]->setString( namespace_ ? NamespaceStateMap.at(namespace_->getState()).c_str() : "n/a" );
                 break;
             case 2:
+                entries->values[0]->setString("Prefix Registered");
+                entries->values[1]->setString(prefixRegistered_ && *prefixRegistered_ ? "true" : "false");
+                break;
+            case 3:
             {
                 vector<shared_ptr<Data>> dataList;
                 namespace_->getAllData(dataList);
@@ -276,6 +281,32 @@ NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntri
         BaseDAT::getInfoDATEntries(index-2, nEntries, entries, reserved1);
 }
 
+void
+NamespaceDAT::pulsePressed(const char* name, void* reserved1)
+{
+    if (string(name) == PAR_OBJECT_NEEDED)
+    {
+        if (namespace_ && namespace_->getFace_())
+            runFetch(nullptr, nullptr, nullptr);
+    }
+    else
+        BaseDAT::pulsePressed(name, reserved1);
+}
+
+void
+NamespaceDAT::initPulsed()
+{
+    releaseNamespace(nullptr, nullptr, nullptr);
+}
+
+void
+NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
+{
+    if (faceDatOp_ == op)
+        unpairFaceDatOp(nullptr, nullptr, nullptr);
+    if (keyChainDatOp_ == op)
+        unpairKeyChainDatOp(nullptr, nullptr, nullptr);
+}
 
 void
 NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
@@ -356,33 +387,6 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 }
 
 void
-NamespaceDAT::pulsePressed(const char* name, void* reserved1)
-{
-    if (string(name) == PAR_OBJECT_NEEDED)
-    {
-        if (namespace_ && namespace_->getFace_())
-            runFetch(nullptr, nullptr, nullptr);
-    }
-    else
-        BaseDAT::pulsePressed(name, reserved1);
-}
-
-void
-NamespaceDAT::initPulsed()
-{
-    releaseNamespace(nullptr, nullptr, nullptr);
-}
-
-void
-NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
-{
-    if (faceDatOp_ == op)
-        unpairFaceDatOp(nullptr, nullptr, nullptr);
-    if (keyChainDatOp_ == op)
-        unpairKeyChainDatOp(nullptr, nullptr, nullptr);
-}
-
-void
 NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
 {
     updateIfNew<string>
@@ -395,7 +399,10 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
      });
     
     updateIfNew<string>
-    (PAR_KEYCHAINDAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAINDAT)));
+    (PAR_KEYCHAINDAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAINDAT)),
+     [&](string& p){
+         return (p != keyChainDat_) || (keyChainDatOp_ == nullptr && p.size());
+     });
 
     updateIfNew<uint32_t>
     (PAR_FRESHNESS, freshness_, inputs->getParInt(PAR_FRESHNESS));
@@ -479,11 +486,21 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         
         shared_ptr<helpers::logger> logger = logger_;
         shared_ptr<Namespace> nmspc = namespace_;
-        faceDatOp_->getFaceProcessor()->dispatchSynchronized([isProducer,nmspc,logger](shared_ptr<Face> f){
+        prefixRegistered_ = make_shared<bool>(false);
+        shared_ptr<bool> prefixRegistered = prefixRegistered_;
+        faceDatOp_->getFaceProcessor()->dispatchSynchronized([isProducer,nmspc,logger,prefixRegistered](shared_ptr<Face> f){
+            logger->debug("Set face for namespace {}", nmspc->getName().toUri());
+            
             if (isProducer)
-                nmspc->setFace(f.get(), [logger](const shared_ptr<const Name>&n){
-                    logger->error("Failed to register prefix {}", n->toUri());
-                });
+                nmspc->setFace(f.get(),
+                               [logger](const shared_ptr<const Name>& n){
+                                   logger->error("Failed to register prefix {}", n->toUri());
+                               },
+                               [logger,prefixRegistered](const shared_ptr<const Name>& n,
+                                                         uint64_t registeredPrefixId){
+                                   *prefixRegistered = true;
+                                   logger->debug("Registered prefix {}", n->toUri());
+                               });
             else
                 nmspc->setFace(f.get());
         });
@@ -589,6 +606,12 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
     const char *str = datInput->getCell(0, 0);
     std::string payload(str);
     
+    if (payload.size() == 0)
+    {
+        setWarning("The input is empty. Not publishing");
+        return;
+    }
+    
     try {
         
         switch (handlerType_)
@@ -615,6 +638,7 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
                 break;
         }
         
+        clearWarning();
         clearError();
         
         OPLOG_DEBUG("Published data under {}", namespace_->getName().toUri());

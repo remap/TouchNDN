@@ -51,7 +51,6 @@ public:
     virtual void getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1);
 	virtual void execute(DAT_Output*, const OP_Inputs*, void* reserved) override;
 
-
 //    virtual int32_t        getNumInfoCHOPChans(void* reserved1) override;
 //    virtual void        getInfoCHOPChan(int index,
 //                                        OP_InfoCHOPChan* chan, 
@@ -76,6 +75,7 @@ private:
     bool rawOutput_;
     typedef std::vector<std::pair<std::string, std::string>> MetaInfoRows;
     std::shared_ptr<MetaInfoRows> gobjMetaInfoRows_;
+    std::shared_ptr<bool> prefixRegistered_;
     
     virtual void initPulsed() override;
     virtual void onOpUpdate(OP_Common*, const std::string&) override;
