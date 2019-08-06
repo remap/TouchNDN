@@ -123,7 +123,7 @@ namespace touch_ndn
         }
         
         opName = opFullPath.substr(last);
-        opPath = opFullPath.substr(prev ? prev-1 : 0, last);
+        opPath = opFullPath.substr(0, last);
     }
     
     bool
