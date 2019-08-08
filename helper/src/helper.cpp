@@ -139,11 +139,8 @@ void initLogger(shared_ptr<spdlog::logger> logger)
 {
     logger->flush_on(spdlog::level::err);
     if (logLevel == "")
-#ifdef DEBUG
-        logLevel = "trace";
-#else
         logLevel = "info";
-#endif
+
     logger->set_level(spdlog::level::from_str(logLevel));
     logger->info("Initialized logger {}: level {} file {}",  logger->name(),
         spdlog::level::to_short_c_str(logger->level()), logFile);
