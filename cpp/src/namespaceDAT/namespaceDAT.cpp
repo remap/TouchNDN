@@ -128,12 +128,12 @@ extern "C"
 
 NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 : BaseDAT(info)
-, freshness_(4000)
+, freshness_(16000)
 , handlerType_(HandlerType::GObj)
 , faceDatOp_(nullptr)
 , keyChainDatOp_(nullptr)
 , rawOutput_(true)
-, gobjMetaInfoRows_(make_shared<MetaInfoRows>())
+, namespaceInfoRows_(make_shared<NamespaceInfoRows>())
 {
     OPLOG_DEBUG("Created NamespaceDAT");
 }
@@ -146,7 +146,7 @@ NamespaceDAT::~NamespaceDAT()
 void
 NamespaceDAT::getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1)
 {
-    ginfo->cookEveryFrame = false;
+    ginfo->cookEveryFrame = true;
     ginfo->cookEveryFrameIfAsked = true;
 }
 
@@ -183,7 +183,7 @@ NamespaceDAT::execute(DAT_Output* output,
         }
     }
     else
-        output->setText("");
+        setOutput(output, inputs, reserved);
 }
 
 void
@@ -206,99 +206,6 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
         output->setText("");
 }
 
-#define NDEFAULT_ROWS 3
-bool
-NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
-{
-    BaseDAT::getInfoDATSize(infoSize, reserved1);
-    int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
-    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
-    
-    infoSize->rows += nDefaultRows + gobjMetaInfoRows_->size();
-    infoSize->cols = 2;
-    infoSize->byColumn = false;
-    
-    return true;
-}
-
-void
-NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
-                                void* reserved1)
-{
-    int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
-    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
-    int nRows = nDefaultRows + (int)gobjMetaInfoRows_->size();
-    if (index < nRows)
-    {
-        static const map<NamespaceState, string> NamespaceStateMap = {
-            { NamespaceState_NAME_EXISTS, "NAME_EXISTS" },
-            { NamespaceState_INTEREST_EXPRESSED, "INTEREST_EXPRESSED" },
-            { NamespaceState_INTEREST_TIMEOUT, "INTEREST_TIMEOUT" },
-            { NamespaceState_INTEREST_NETWORK_NACK, "INTEREST_NETWORK_NACK" },
-            { NamespaceState_DATA_RECEIVED, "DATA_RECEIVED" },
-            { NamespaceState_DESERIALIZING, "DESERIALIZING" },
-            { NamespaceState_DECRYPTING, "DECRYPTING" },
-            { NamespaceState_DECRYPTION_ERROR, "DECRYPTION_ERROR" },
-            { NamespaceState_PRODUCING_OBJECT, "PRODUCING_OBJECT" },
-            { NamespaceState_SERIALIZING, "SERIALIZING" },
-            { NamespaceState_ENCRYPTING, "ENCRYPTING" },
-            { NamespaceState_ENCRYPTION_ERROR, "ENCRYPTION_ERROR" },
-            { NamespaceState_SIGNING, "SIGNING" },
-            { NamespaceState_SIGNING_ERROR, "SIGNING_ERROR" },
-            { NamespaceState_OBJECT_READY, "OBJECT_READY" },
-            { NamespaceState_OBJECT_READY_BUT_STALE, "OBJECT_READY_BUT_STALE" }
-        };
-        
-        switch (index) {
-            case 0:
-                entries->values[0]->setString("Full Name");
-                entries->values[1]->setString( namespace_ ? namespace_->getName().toUri().c_str() : "" );
-                break;
-            case 1:
-                entries->values[0]->setString("State");
-                entries->values[1]->setString( namespace_ ? NamespaceStateMap.at(namespace_->getState()).c_str() : "n/a" );
-                break;
-            case 2:
-                entries->values[0]->setString("Prefix Registered");
-                entries->values[1]->setString(prefixRegistered_ && *prefixRegistered_ ? "true" : "false");
-                break;
-            case 3:
-            {
-                vector<shared_ptr<Data>> dataList;
-                namespace_->getAllData(dataList);
-                entries->values[0]->setString("Total Packets");
-                entries->values[1]->setString(to_string(dataList.size()).c_str());
-            }
-                break;
-            default:
-                int i = index - nDefaultRows;
-                entries->values[0]->setString((*gobjMetaInfoRows_)[i].first.c_str());
-                entries->values[1]->setString((*gobjMetaInfoRows_)[i].second.c_str());
-                break;
-        }
-    }
-    else
-        BaseDAT::getInfoDATEntries(index-2, nEntries, entries, reserved1);
-}
-
-void
-NamespaceDAT::pulsePressed(const char* name, void* reserved1)
-{
-    if (string(name) == PAR_OBJECT_NEEDED)
-    {
-        if (namespace_ && namespace_->getFace_())
-            runFetch(nullptr, nullptr, nullptr);
-    }
-    else
-        BaseDAT::pulsePressed(name, reserved1);
-}
-
-void
-NamespaceDAT::initPulsed()
-{
-    releaseNamespace(nullptr, nullptr, nullptr);
-}
-
 void
 NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
 {
@@ -309,147 +216,16 @@ NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
 }
 
 void
-NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
-{
-    BaseDAT::setupParameters(manager, reserved1);
-    
-    appendPar<OP_StringParameter>
-    (manager, PAR_PREFIX, PAR_PREFIX_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         return manager->appendString(p);
-     });
-    
-    appendPar<OP_StringParameter>
-    (manager, PAR_FACEDAT, PAR_FACEDAT_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         return manager->appendDAT(p);
-     });
-    appendPar<OP_StringParameter>
-    (manager, PAR_KEYCHAINDAT, PAR_KEYCHAINDAT_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         return manager->appendDAT(p);
-     });
-    appendPar<OP_NumericParameter>
-    (manager, PAR_FRESHNESS, PAR_FRESHNESS_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_NumericParameter &p){
-         p.minValues[0] = 0;
-         p.maxValues[0] = 24*3600*1000;
-         p.minSliders[0] = p.minValues[0];
-         p.maxSliders[0] = p.maxValues[0];
-         p.defaultValues[0] = freshness_;
-         return manager->appendInt(p);
-     });
-    
-#define PAR_HANDLER_MENU_SIZE 4
-    static const char *names[PAR_HANDLER_MENU_SIZE] = {
-        PAR_HANDLER_NONE,
-        PAR_HANDLER_SEGMENTED,
-        PAR_HANDLER_GOBJ,
-        PAR_HANDLER_GOSTREAM
-    };
-    static const char *labels[PAR_HANDLER_MENU_SIZE] = {
-        PAR_HANDLER_NONE_LABEL,
-        PAR_HANDLER_SEGMENTED_LABEL,
-        PAR_HANDLER_GOBJ_LABEL,
-        PAR_HANDLER_GOSTREAM_LABEL
-    };
-    
-    appendPar<OP_StringParameter>
-    (manager, PAR_HANDLER_TYPE, PAR_HANDLER_TYPE_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         for (auto it:HandlerTypeMap)
-             if (it.second == handlerType_)
-             {
-                 p.defaultValue = it.first.c_str();
-                 break;
-             }
-         return manager->appendMenu(p, PAR_HANDLER_MENU_SIZE, names, labels);
-     });
-    
-    appendPar<OP_NumericParameter>
-    (manager, PAR_OBJECT_NEEDED, PAR_OBJECT_NEEDED_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_NumericParameter &p){
-         return manager->appendPulse(p);
-     });
-    
-    appendPar<OP_StringParameter>
-    (manager, PAR_TOP_INPUT, PAR_TOP_INPUT_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         return manager->appendDAT(p);
-     });
-    
-    appendPar<OP_NumericParameter>
-    (manager, PAR_OUTPUT, PAR_OUTPUT_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_NumericParameter &p){
-         p.defaultValues[0] = rawOutput_;
-         return manager->appendToggle(p);
-     });
-}
-
-void
-NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
-{
-    updateIfNew<string>
-    (PAR_PREFIX, prefix_, inputs->getParString(PAR_PREFIX));
-    
-    updateIfNew<string>
-    (PAR_FACEDAT, faceDat_, getCanonical(inputs->getParString(PAR_FACEDAT)),
-     [&](string& p){
-         return (p != faceDat_) || (faceDatOp_ == nullptr && p.size());
-     });
-    
-    updateIfNew<string>
-    (PAR_KEYCHAINDAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAINDAT)),
-     [&](string& p){
-         return (p != keyChainDat_) || (keyChainDatOp_ == nullptr && p.size());
-     });
-
-    updateIfNew<uint32_t>
-    (PAR_FRESHNESS, freshness_, inputs->getParInt(PAR_FRESHNESS));
-    
-    updateIfNew<string>
-    (PAR_TOP_INPUT, payloadTop_, getCanonical(inputs->getParString(PAR_TOP_INPUT)));
-    
-    updateIfNew<HandlerType>
-    (PAR_HANDLER_TYPE, handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
-    
-    updateIfNew<bool>
-    (PAR_OUTPUT, rawOutput_, (bool)inputs->getParInt(PAR_OUTPUT));
-}
-
-void
-NamespaceDAT::paramsUpdated()
-{
-    runIfUpdated(PAR_PREFIX, [this](){
-        dispatchOnExecute(bind(&NamespaceDAT::initNamespace, this, _1, _2, _3));
-    });
-    
-    runIfUpdated(PAR_FACEDAT, [this](){
-        dispatchOnExecute(bind(&NamespaceDAT::pairFaceDatOp, this, _1, _2, _3));
-    });
-    
-    runIfUpdated(PAR_KEYCHAINDAT, [this](){
-        dispatchOnExecute(bind(&NamespaceDAT::pairKeyChainDatOp, this, _1, _2, _3));
-    });
-    
-    runIfUpdated(PAR_OUTPUT, [this](){
-        if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
-            dispatchOnExecute(bind(&NamespaceDAT::setOutput, this, _1, _2, _3));
-    });
-}
-
-void
 NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
 {
     releaseNamespace(output, inputs, reserved);
-    setOutput(output, inputs, reserved);
-    
+
     if (!faceDatOp_)
     {
         setError("FaceDAT is not set");
         return;
     }
-    
+
     bool isProducer = (inputs->getNumInputs() || payloadTop_.size());
     KeyChain *keyChain = 0;
     
@@ -470,7 +246,7 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
             setError("Namespace requires a prefix");
             return;
         }
-        
+
         clearError();
         
         namespace_ = make_shared<Namespace>(prefix_, keyChain);
@@ -483,14 +259,17 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         }
         else
             OPLOG_DEBUG("Created consumer namespace {}", namespace_->getName().toUri());
-        
+
+        namespaceInfoRows_->clear();
+        namespaceInfoRows_->push_back(pair<string,string>("Type", isProducer ? "PRODUCER" : "CONSUMER"));
+        prefixRegistered_ = make_shared<bool>(false);
+
         shared_ptr<helpers::logger> logger = logger_;
         shared_ptr<Namespace> nmspc = namespace_;
-        prefixRegistered_ = make_shared<bool>(false);
         shared_ptr<bool> prefixRegistered = prefixRegistered_;
         faceDatOp_->getFaceProcessor()->dispatchSynchronized([isProducer,nmspc,logger,prefixRegistered](shared_ptr<Face> f){
             logger->debug("Set face for namespace {}", nmspc->getName().toUri());
-            
+
             if (isProducer)
                 nmspc->setFace(f.get(),
                                [logger](const shared_ptr<const Name>& n){
@@ -512,6 +291,7 @@ NamespaceDAT::releaseNamespace(DAT_Output*output, const OP_Inputs* inputs, void*
 {
     if (namespace_.get())
     {
+        namespace_->setFace(nullptr);
         namespace_.reset();
     }
 }
@@ -584,7 +364,6 @@ NamespaceDAT::pairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, voi
         setError("Failed to find TouchNDN operator %s", keyChainDat_.c_str());
 }
 
-
 void
 NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
@@ -603,7 +382,12 @@ void
 NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
     const OP_DATInput *datInput = inputs->getInputDAT(0);
-    const char *str = datInput->getCell(0, 0);
+    
+    if (datInput->numCols == 0 || datInput->numRows == 0)
+        // got nothing
+        return;
+    
+    const char *str = datInput->numCols ->getCell(0, 0);
     std::string payload(str);
     
     if (payload.size() == 0)
@@ -642,11 +426,16 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
         clearError();
         
         OPLOG_DEBUG("Published data under {}", namespace_->getName().toUri());
-#ifdef DEBUG
+
         vector<shared_ptr<Data>> allData;
         namespace_->getAllData(allData);
-        for (auto d:allData) OPLOG_TRACE("{}", d->getName().toUri());
-#endif
+        int idx = 0;
+        for (auto d:allData)
+        {
+            namespaceInfoRows_->push_back(pair<string,string>("Packet "+to_string(idx++), d->getName().toUri()));
+            OPLOG_TRACE("{}", d->getName().toUri());
+        }
+
     }
     catch (std::runtime_error &e)
     {
@@ -670,8 +459,7 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
             break;
         case HandlerType::GObj:
         {
-            gobjMetaInfoRows_->clear();
-            shared_ptr<MetaInfoRows> metaInfoRows = gobjMetaInfoRows_;
+            shared_ptr<NamespaceInfoRows> metaInfoRows = namespaceInfoRows_;
             bool rawOutput = rawOutput_;
             GeneralizedObjectHandler(namespace_.get(), [metaInfoRows, rawOutput](const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace&){
                 metaInfoRows->push_back(pair<string, string>("ContentType", contentMetaInfo->getContentType()));
@@ -690,4 +478,228 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
             setError("Unsupported handler type");
             break;
     }
+}
+
+#define NDEFAULT_ROWS 3
+bool
+NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
+{
+    BaseDAT::getInfoDATSize(infoSize, reserved1);
+    int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
+    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
+    
+    infoSize->rows += nDefaultRows + namespaceInfoRows_->size();
+    infoSize->cols = 2;
+    infoSize->byColumn = false;
+    
+    return true;
+}
+
+void
+NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
+                                void* reserved1)
+{
+    int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
+    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
+    int nRows = nDefaultRows + (int)namespaceInfoRows_->size();
+    if (index < nRows)
+    {
+        static const map<NamespaceState, string> NamespaceStateMap = {
+            { NamespaceState_NAME_EXISTS, "NAME_EXISTS" },
+            { NamespaceState_INTEREST_EXPRESSED, "INTEREST_EXPRESSED" },
+            { NamespaceState_INTEREST_TIMEOUT, "INTEREST_TIMEOUT" },
+            { NamespaceState_INTEREST_NETWORK_NACK, "INTEREST_NETWORK_NACK" },
+            { NamespaceState_DATA_RECEIVED, "DATA_RECEIVED" },
+            { NamespaceState_DESERIALIZING, "DESERIALIZING" },
+            { NamespaceState_DECRYPTING, "DECRYPTING" },
+            { NamespaceState_DECRYPTION_ERROR, "DECRYPTION_ERROR" },
+            { NamespaceState_PRODUCING_OBJECT, "PRODUCING_OBJECT" },
+            { NamespaceState_SERIALIZING, "SERIALIZING" },
+            { NamespaceState_ENCRYPTING, "ENCRYPTING" },
+            { NamespaceState_ENCRYPTION_ERROR, "ENCRYPTION_ERROR" },
+            { NamespaceState_SIGNING, "SIGNING" },
+            { NamespaceState_SIGNING_ERROR, "SIGNING_ERROR" },
+            { NamespaceState_OBJECT_READY, "OBJECT_READY" },
+            { NamespaceState_OBJECT_READY_BUT_STALE, "OBJECT_READY_BUT_STALE" }
+        };
+        
+        switch (index) {
+            case 0:
+                entries->values[0]->setString("Full Name");
+                entries->values[1]->setString( namespace_ ? namespace_->getName().toUri().c_str() : "" );
+                break;
+            case 1:
+                entries->values[0]->setString("State");
+                entries->values[1]->setString( namespace_ ? NamespaceStateMap.at(namespace_->getState()).c_str() : "n/a" );
+                break;
+            case 2:
+                entries->values[0]->setString("Prefix Registered");
+                entries->values[1]->setString(prefixRegistered_ && *prefixRegistered_ ? "true" : "false");
+                break;
+            case 3:
+                if (packetsRow)
+                {
+                    vector<shared_ptr<Data>> dataList;
+                    namespace_->getAllData(dataList);
+                    entries->values[0]->setString("Total Packets");
+                    entries->values[1]->setString(to_string(dataList.size()).c_str());
+                    break;
+                }// else -- fallthrough
+            default:
+                int i = index - nDefaultRows;
+                entries->values[0]->setString((*namespaceInfoRows_)[i].first.c_str());
+                entries->values[1]->setString((*namespaceInfoRows_)[i].second.c_str());
+                break;
+        }
+    }
+    else
+        BaseDAT::getInfoDATEntries(index-2, nEntries, entries, reserved1);
+}
+
+void
+NamespaceDAT::pulsePressed(const char* name, void* reserved1)
+{
+    if (string(name) == PAR_OBJECT_NEEDED)
+    {
+        if (namespace_ && namespace_->getFace_())
+            runFetch(nullptr, nullptr, nullptr);
+    }
+    else
+        BaseDAT::pulsePressed(name, reserved1);
+}
+
+void
+NamespaceDAT::initPulsed()
+{
+    releaseNamespace(nullptr, nullptr, nullptr);
+}
+
+void
+NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
+{
+    BaseDAT::setupParameters(manager, reserved1);
+    
+    appendPar<OP_StringParameter>
+    (manager, PAR_PREFIX, PAR_PREFIX_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         return manager->appendString(p);
+     });
+    
+    appendPar<OP_StringParameter>
+    (manager, PAR_FACEDAT, PAR_FACEDAT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         return manager->appendDAT(p);
+     });
+    appendPar<OP_StringParameter>
+    (manager, PAR_KEYCHAINDAT, PAR_KEYCHAINDAT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         return manager->appendDAT(p);
+     });
+    appendPar<OP_NumericParameter>
+    (manager, PAR_FRESHNESS, PAR_FRESHNESS_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.minValues[0] = 0;
+         p.maxValues[0] = 24*3600*1000;
+         p.minSliders[0] = p.minValues[0];
+         p.maxSliders[0] = p.maxValues[0];
+         p.defaultValues[0] = freshness_;
+         return manager->appendInt(p);
+     });
+    
+#define PAR_HANDLER_MENU_SIZE 4
+    static const char *names[PAR_HANDLER_MENU_SIZE] = {
+        PAR_HANDLER_NONE,
+        PAR_HANDLER_SEGMENTED,
+        PAR_HANDLER_GOBJ,
+        PAR_HANDLER_GOSTREAM
+    };
+    static const char *labels[PAR_HANDLER_MENU_SIZE] = {
+        PAR_HANDLER_NONE_LABEL,
+        PAR_HANDLER_SEGMENTED_LABEL,
+        PAR_HANDLER_GOBJ_LABEL,
+        PAR_HANDLER_GOSTREAM_LABEL
+    };
+    
+    appendPar<OP_StringParameter>
+    (manager, PAR_HANDLER_TYPE, PAR_HANDLER_TYPE_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         for (auto it:HandlerTypeMap)
+             if (it.second == handlerType_)
+             {
+                 p.defaultValue = it.first.c_str();
+                 break;
+             }
+         return manager->appendMenu(p, PAR_HANDLER_MENU_SIZE, names, labels);
+     });
+    
+//    appendPar<OP_NumericParameter>
+//    (manager, PAR_OBJECT_NEEDED, PAR_OBJECT_NEEDED_LABEL, PAR_PAGE_DEFAULT,
+//     [&](OP_NumericParameter &p){
+//         return manager->appendPulse(p);
+//     });
+    
+    appendPar<OP_StringParameter>
+    (manager, PAR_TOP_INPUT, PAR_TOP_INPUT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         return manager->appendDAT(p);
+     });
+    
+    appendPar<OP_NumericParameter>
+    (manager, PAR_OUTPUT, PAR_OUTPUT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.defaultValues[0] = rawOutput_;
+         return manager->appendToggle(p);
+     });
+}
+
+void
+NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
+{
+    updateIfNew<string>
+    (PAR_PREFIX, prefix_, inputs->getParString(PAR_PREFIX));
+    
+    updateIfNew<string>
+    (PAR_FACEDAT, faceDat_, getCanonical(inputs->getParString(PAR_FACEDAT)),
+     [&](string& p){
+         return (p != faceDat_) || (faceDatOp_ == nullptr && p.size());
+     });
+    
+    updateIfNew<string>
+    (PAR_KEYCHAINDAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAINDAT)),
+     [&](string& p){
+         return (p != keyChainDat_) || (keyChainDatOp_ == nullptr && p.size());
+     });
+    
+    updateIfNew<uint32_t>
+    (PAR_FRESHNESS, freshness_, inputs->getParInt(PAR_FRESHNESS));
+    
+    updateIfNew<string>
+    (PAR_TOP_INPUT, payloadTop_, getCanonical(inputs->getParString(PAR_TOP_INPUT)));
+    
+    updateIfNew<HandlerType>
+    (PAR_HANDLER_TYPE, handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
+    
+    updateIfNew<bool>
+    (PAR_OUTPUT, rawOutput_, (bool)inputs->getParInt(PAR_OUTPUT));
+}
+
+void
+NamespaceDAT::paramsUpdated()
+{
+    runIfUpdated(PAR_PREFIX, [this](){
+        dispatchOnExecute(bind(&NamespaceDAT::initNamespace, this, _1, _2, _3));
+    });
+    
+    runIfUpdated(PAR_FACEDAT, [this](){
+        dispatchOnExecute(bind(&NamespaceDAT::pairFaceDatOp, this, _1, _2, _3));
+    });
+    
+    runIfUpdated(PAR_KEYCHAINDAT, [this](){
+        dispatchOnExecute(bind(&NamespaceDAT::pairKeyChainDatOp, this, _1, _2, _3));
+    });
+    
+    runIfUpdated(PAR_OUTPUT, [this](){
+        if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
+            dispatchOnExecute(bind(&NamespaceDAT::setOutput, this, _1, _2, _3));
+    });
 }

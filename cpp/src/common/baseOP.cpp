@@ -150,7 +150,11 @@ namespace touch_ndn
     {
         va_list args;
         va_start(args, format);
-        setString(errorString_, format, args);
+        // TODO: due to the bug https://www.derivative.ca/Forum/viewtopic.php?f=12&t=19740#p60455
+        // use setString(warningString_, format, args); instead
+        // change it when the bug is fixed
+        // setString(errorString_, format, args);
+        setString(warningString_, format, args);
         va_end(args);
         
         isReady_ = false;
@@ -180,8 +184,8 @@ namespace touch_ndn
     OP_Common::setString(std::string &string, const char *format, va_list args)
     {
         static char s[4096];
-        memset((void*)s, 0, 4096);
-        vsprintf(s, format, args);
+        memset(s, (char)0, 4096);
+        vsprintf(&(s[0]), format, args);
         string = std::string(s);
     }
     

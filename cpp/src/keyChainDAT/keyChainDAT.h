@@ -64,7 +64,6 @@ namespace touch_ndn {
                                               void* reserved1) override;
         
         virtual void		setupParameters(OP_ParameterManager* manager, void* reserved1) override;
-        virtual void		pulsePressed(const char* name, void* reserved1) override;
         
         std::shared_ptr<helpers::KeyChainManager> getKeyChainManager() { return keyChainManager_; }
         

@@ -414,6 +414,9 @@ FaceDAT::initFace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
     if (keyChainDatOp_)
         clearKeyChainPairing(output, inputs, reserved);
     
+    
+    // notify existing listeners about reset so that they can react accordingly
+    if (faceProcessor_) notifyListeners(OP_EVENT_RESET);
     faceProcessor_.reset();
     
     try
@@ -793,7 +796,7 @@ void FaceDAT::onOpUpdate(OP_Common *op, const std::string& event)
 {
     if (op == keyChainDatOp_)
     {
-        if (event == OP_EVENT_DESTROY)
+        if (event == OP_EVENT_DESTROY || event == OP_EVENT_RESET)
             clearKeyChainPairing(nullptr, nullptr, nullptr);
     }
 }

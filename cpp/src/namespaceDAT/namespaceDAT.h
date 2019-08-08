@@ -73,8 +73,8 @@ private:
     KeyChainDAT *keyChainDatOp_;
     std::shared_ptr<cnl_cpp::Namespace> namespace_;
     bool rawOutput_;
-    typedef std::vector<std::pair<std::string, std::string>> MetaInfoRows;
-    std::shared_ptr<MetaInfoRows> gobjMetaInfoRows_;
+    typedef std::vector<std::pair<std::string, std::string>> NamespaceInfoRows;
+    std::shared_ptr<NamespaceInfoRows> namespaceInfoRows_;
     std::shared_ptr<bool> prefixRegistered_;
     
     virtual void initPulsed() override;

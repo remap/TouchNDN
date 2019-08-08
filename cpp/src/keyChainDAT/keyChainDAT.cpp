@@ -150,13 +150,16 @@ KeyChainDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 {
     BaseDAT::setupParameters(manager, reserved1);
     
-#define PAR_KEYCHAIN_MENU_SIZE 2
-    static const char *names[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_EMBED,
-                                                        //PAR_KEYCHAIN_TYPE_FILE,
-                                                        PAR_KEYCHAIN_TYPE_SYSTEM};
-    static const char *labels[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_EMBED_LABEL,
-                                                         //PAR_KEYCHAIN_TYPE_FILE_LABEL,
-                                                         PAR_KEYCHAIN_TYPE_SYSTEM_LABEL};
+#define PAR_KEYCHAIN_MENU_SIZE 1
+    static const char *names[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_EMBED
+                                                        //,PAR_KEYCHAIN_TYPE_FILE
+                                                        //,PAR_KEYCHAIN_TYPE_SYSTEM
+    };
+    static const char *labels[PAR_KEYCHAIN_MENU_SIZE] = {PAR_KEYCHAIN_TYPE_EMBED_LABEL
+                                                         //,PAR_KEYCHAIN_TYPE_FILE_LABEL
+                                                         //,PAR_KEYCHAIN_TYPE_SYSTEM_LABEL
+        
+    };
     
     appendPar<OP_StringParameter>
     (manager, PAR_KEYCHAIN_MENU, PAR_KEYCHAIN_MENU_LABEL, PAR_PAGE_DEFAULT,
@@ -176,14 +179,10 @@ KeyChainDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 }
 
 void
-KeyChainDAT::pulsePressed(const char* name, void* reserved1)
-{
-}
-
-void
 KeyChainDAT::initPulsed()
 {
     // reinit
+    dispatchOnExecute(bind(&KeyChainDAT::initKeyChain, this, _1, _2, _3));
 }
 
 void
@@ -205,6 +204,9 @@ KeyChainDAT::paramsUpdated()
 void
 KeyChainDAT::initKeyChain(DAT_Output *, const OP_Inputs *, void *reserved)
 {
+    if (keyChainManager_) notifyListeners(OP_EVENT_RESET);
+    keyChainManager_.reset();
+    
     if (keyChainType_ == KeyChainType::Embedded)
     {
         string signingIdentity = "/touchdesigner";

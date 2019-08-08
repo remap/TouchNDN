@@ -35,6 +35,7 @@
 #define PAR_INIT_LABEL "Init"
 
 #define OP_EVENT_DESTROY "destroy"
+#define OP_EVENT_RESET "reset"
 
 // helper macro for logging from within the TouchNDN operators
 // these can only be called from within the OP_Common or derived

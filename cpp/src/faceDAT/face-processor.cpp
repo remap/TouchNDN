@@ -305,6 +305,7 @@ void FaceProcessorImpl::runFace()
                 self->io_.reset();
                 self->face_->processEvents();
                 self->processEventsTimestamp_ = ndn_getNowMilliseconds();
+                usleep(5000);
 #endif
             }
             catch (std::exception &e) {
