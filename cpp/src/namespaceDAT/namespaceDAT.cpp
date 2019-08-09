@@ -146,7 +146,8 @@ NamespaceDAT::~NamespaceDAT()
 void
 NamespaceDAT::getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1)
 {
-    ginfo->cookEveryFrame = true;
+    ginfo->cookEveryFrame = false;
+    // has to be true, because otherwise the OP isn't cooking enough to run its logic
     ginfo->cookEveryFrameIfAsked = true;
 }
 
@@ -193,6 +194,7 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
         switch (handlerType_)
         {
             case HandlerType::None: // fallthrough
+            case HandlerType::Segmented: // fallthrough
             case HandlerType::GObj:
                 if (rawOutput_)
                     output->setText(namespace_->getBlobObject().toRawStr().c_str());
@@ -387,7 +389,7 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
         // got nothing
         return;
     
-    const char *str = datInput->numCols ->getCell(0, 0);
+    const char *str = datInput->getCell(0, 0);
     std::string payload(str);
     
     if (payload.size() == 0)
@@ -400,13 +402,14 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
         
         switch (handlerType_)
         {
-            case HandlerType::Segmented: // fallthrough
-            {
-                SegmentedObjectHandler handler(namespace_.get());
-            }
             case HandlerType::None:
             {
                 namespace_->serializeObject(make_shared<BlobObject>(Blob::fromRawStr(payload)));
+            }
+                break;
+            case HandlerType::Segmented:
+            {
+                SegmentStreamHandler().setObject(*namespace_, Blob::fromRawStr(payload));
             }
                 break;
             case HandlerType::GObj:
