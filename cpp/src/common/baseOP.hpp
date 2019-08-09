@@ -86,7 +86,7 @@ namespace touch_ndn {
         // this function tests if "path" starts with "/" -- then it is treated as absolute path
         // otherwise -- path treated as a relative to opPath_
         // in either way, path is checked for existing ".." and updated accordingly
-        std::string getCanonical(const std::string &path);
+        std::string getCanonical(const std::string &path) const;
         bool getIsReady() const { return isReady_; }
         std::string getFullPath() const { return opPath_ + opName_; }
         

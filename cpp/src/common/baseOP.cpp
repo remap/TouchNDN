@@ -99,7 +99,7 @@ namespace touch_ndn
     }
     
     string
-    OP_Common::getCanonical(const std::string &path)
+    OP_Common::getCanonical(const std::string &path) const
     {
         string canonicalPath;
         

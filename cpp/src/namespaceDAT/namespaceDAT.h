@@ -22,6 +22,10 @@
 
 #include "baseDAT.hpp"
 
+namespace ndn {
+    class Blob;
+}
+
 namespace cnl_cpp {
     class Namespace;
 }
@@ -68,7 +72,7 @@ public:
 private:
     HandlerType handlerType_;
     uint32_t freshness_;
-    std::string prefix_, faceDat_, keyChainDat_, payloadTop_;
+    std::string prefix_, faceDat_, keyChainDat_, payloadInput_, payloadOutput_;
     FaceDAT *faceDatOp_;
     KeyChainDAT *keyChainDatOp_;
     std::shared_ptr<cnl_cpp::Namespace> namespace_;
@@ -80,6 +84,7 @@ private:
     virtual void initPulsed() override;
     virtual void onOpUpdate(OP_Common*, const std::string&) override;
     
+    bool isProducer(const OP_Inputs*);
     void checkParams(DAT_Output*, const OP_Inputs*, void* reserved) override;
     void paramsUpdated() override;
   
@@ -93,6 +98,7 @@ private:
     void runPublish(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
+    std::shared_ptr<ndn::Blob> getPayload(const OP_Inputs*, std::string& contentType) const;
 };
 
 }

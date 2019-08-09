@@ -25,7 +25,7 @@
 #include <math.h>
 #include <assert.h>
 #include <array>
-
+#include <fstream>
 
 #include <cnl-cpp/namespace.hpp>
 #include <cnl-cpp/segmented-object-handler.hpp>
@@ -49,10 +49,12 @@
 #define PAR_FRESHNESS_LABEL "Freshness"
 #define PAR_HANDLER_TYPE "Handlertype"
 #define PAR_HANDLER_TYPE_LABEL "Handler"
-#define PAR_TOP_INPUT "Topinput"
-#define PAR_TOP_INPUT_LABEL "Payload TOP"
+#define PAR_INPUT "Input"
+#define PAR_INPUT_LABEL "Payload Input"
 #define PAR_OUTPUT "Output"
-#define PAR_OUTPUT_LABEL "Raw Output"
+#define PAR_OUTPUT_LABEL "Payload Output"
+#define PAR_RAWOUTPUT "Rawoutput"
+#define PAR_RAWOUTPUT_LABEL "Raw Output"
 
 #define PAR_HANDLER_NONE "Handlernone"
 #define PAR_HANDLER_NONE_LABEL "None"
@@ -134,6 +136,8 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , keyChainDatOp_(nullptr)
 , rawOutput_(true)
 , namespaceInfoRows_(make_shared<NamespaceInfoRows>())
+, payloadInput_("")
+, payloadOutput_("")
 {
     OPLOG_DEBUG("Created NamespaceDAT");
 }
@@ -163,7 +167,7 @@ NamespaceDAT::execute(DAT_Output* output,
     
     if (namespace_ && namespace_->getFace_())
     {
-        bool isFetching = !(inputs->getNumInputs() || payloadTop_.size());
+        bool isFetching = !isProducer(inputs);
         switch (namespace_->getState()) {
             case NamespaceState_NAME_EXISTS:
             {
@@ -208,6 +212,59 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
         output->setText("");
 }
 
+shared_ptr<ndn::Blob>
+NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType) const
+{
+    contentType = "text/html";
+
+    // give priority to inputs
+    if (inputs->getNumInputs())
+    {
+        const OP_DATInput *datInput = inputs->getInputDAT(0);
+        if (datInput->numCols == 0 || datInput->numRows == 0)
+            // got nothing
+            return shared_ptr<Blob>();
+    
+        contentType = (datInput->isTable && datInput->numRows > 1 ? datInput->getCell(1, 0) : "text/html");
+        return make_shared<Blob>(Blob::fromRawStr(datInput->getCell(0, 0)));
+    }
+    else
+    {
+        // payloadInput_ can either point to a file or a PayloadTOP
+        // check TOP first
+        if (retrieveOp(getCanonical(payloadInput_)))
+        {
+            // load payload from the TOP
+            return shared_ptr<Blob>();
+        }
+        else // treat payloadInput_ as a path to a file
+        {
+            ifstream file(payloadInput_, ios_base::binary | ios_base::in | ios_base::ate);
+            shared_ptr<Blob> b;
+            if (file.is_open())
+            {
+                streamsize sz = file.tellg();
+                shared_ptr<vector<uint8_t>> buf = make_shared<vector<uint8_t>>(sz);
+                file.seekg(0);
+                
+                OPLOG_TRACE("Reading file {} of size {}", payloadInput_, sz);
+                if (!file.read((char*)(buf->data()), sz))
+                {
+                    OPLOG_ERROR("Failed to read {} bytes from file {}", sz, payloadInput_);
+                }
+                else
+                    b = make_shared<Blob>(buf);
+            }
+            else
+                OPLOG_ERROR("Failed to open file {}", payloadInput_);
+            
+            return b;
+        }
+    }
+
+    return shared_ptr<Blob>();
+}
+
 void
 NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
 {
@@ -228,7 +285,7 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         return;
     }
 
-    bool isProducer = (inputs->getNumInputs() || payloadTop_.size());
+    bool isProducer = this->isProducer(inputs);
     KeyChain *keyChain = 0;
     
     if (isProducer)
@@ -371,7 +428,7 @@ NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, v
 {
     if (keyChainDatOp_)
     {
-        if (!inputs || inputs->getNumInputs())
+        if (isProducer(inputs))
             releaseNamespace(output, inputs, reserved);
         
         keyChainDatOp_->unsubscribe(this);
@@ -383,18 +440,12 @@ NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, v
 void
 NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    const OP_DATInput *datInput = inputs->getInputDAT(0);
+    string contentType;
+    shared_ptr<Blob> payload = getPayload(inputs, contentType);
     
-    if (datInput->numCols == 0 || datInput->numRows == 0)
-        // got nothing
-        return;
-    
-    const char *str = datInput->getCell(0, 0);
-    std::string payload(str);
-    
-    if (payload.size() == 0)
+    if (!payload || payload->size() == 0)
     {
-        setWarning("The input is empty. Not publishing");
+        setWarning("Can't read input. Not publishing");
         return;
     }
     
@@ -404,18 +455,17 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
         {
             case HandlerType::None:
             {
-                namespace_->serializeObject(make_shared<BlobObject>(Blob::fromRawStr(payload)));
+                namespace_->serializeObject(make_shared<BlobObject>(*payload));
             }
                 break;
             case HandlerType::Segmented:
             {
-                SegmentStreamHandler().setObject(*namespace_, Blob::fromRawStr(payload));
+                SegmentStreamHandler().setObject(*namespace_, *payload);
             }
                 break;
             case HandlerType::GObj:
             {
-                string contentType = (datInput->isTable && datInput->numRows > 1 ? datInput->getCell(1, 0) : "text/html");
-                GeneralizedObjectHandler().setObject(*namespace_, Blob::fromRawStr(payload), contentType);
+                GeneralizedObjectHandler().setObject(*namespace_, *payload, contentType);
             }
                 break;
             case HandlerType::GObjStream:
@@ -598,6 +648,7 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
      [&](OP_StringParameter &p){
          return manager->appendDAT(p);
      });
+    
     appendPar<OP_NumericParameter>
     (manager, PAR_FRESHNESS, PAR_FRESHNESS_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_NumericParameter &p){
@@ -634,6 +685,18 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
              }
          return manager->appendMenu(p, PAR_HANDLER_MENU_SIZE, names, labels);
      });
+    appendPar<OP_StringParameter>
+    (manager, PAR_INPUT, PAR_INPUT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         p.defaultValue = payloadInput_.c_str();
+         return manager->appendString(p);
+     });
+    appendPar<OP_StringParameter>
+    (manager, PAR_OUTPUT, PAR_OUTPUT_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_StringParameter &p){
+         p.defaultValue = payloadOutput_.c_str();
+         return manager->appendString(p);
+     });
     
 //    appendPar<OP_NumericParameter>
 //    (manager, PAR_OBJECT_NEEDED, PAR_OBJECT_NEEDED_LABEL, PAR_PAGE_DEFAULT,
@@ -641,18 +704,21 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
 //         return manager->appendPulse(p);
 //     });
     
-    appendPar<OP_StringParameter>
-    (manager, PAR_TOP_INPUT, PAR_TOP_INPUT_LABEL, PAR_PAGE_DEFAULT,
-     [&](OP_StringParameter &p){
-         return manager->appendDAT(p);
-     });
-    
     appendPar<OP_NumericParameter>
-    (manager, PAR_OUTPUT, PAR_OUTPUT_LABEL, PAR_PAGE_DEFAULT,
+    (manager, PAR_RAWOUTPUT, PAR_RAWOUTPUT_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_NumericParameter &p){
          p.defaultValues[0] = rawOutput_;
          return manager->appendToggle(p);
      });
+}
+
+bool
+NamespaceDAT::isProducer(const OP_Inputs* inputs)
+{
+    // namespace publishes object if
+    // - keyChain is set AND
+    // - there is an input OR payloadInput_ is not empty
+    return keyChainDatOp_ && (inputs->getNumInputs() || payloadInput_.size());
 }
 
 void
@@ -676,14 +742,17 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     updateIfNew<uint32_t>
     (PAR_FRESHNESS, freshness_, inputs->getParInt(PAR_FRESHNESS));
     
-    updateIfNew<string>
-    (PAR_TOP_INPUT, payloadTop_, getCanonical(inputs->getParString(PAR_TOP_INPUT)));
-    
     updateIfNew<HandlerType>
     (PAR_HANDLER_TYPE, handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
     
+    updateIfNew<string>
+    (PAR_INPUT, payloadInput_, inputs->getParString(PAR_INPUT));
+    
+    updateIfNew<string>
+    (PAR_OUTPUT, payloadOutput_, inputs->getParString(PAR_OUTPUT));
+    
     updateIfNew<bool>
-    (PAR_OUTPUT, rawOutput_, (bool)inputs->getParInt(PAR_OUTPUT));
+    (PAR_RAWOUTPUT, rawOutput_, (bool)inputs->getParInt(PAR_RAWOUTPUT));
 }
 
 void
