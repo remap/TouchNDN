@@ -195,6 +195,7 @@ void
 NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved)
 {
     if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
+    {
         switch (handlerType_)
         {
             case HandlerType::None: // fallthrough
@@ -208,8 +209,48 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
             default:
                 break;
         } // switch
+        
+        // for consumer -- check if need to save to a TOP or a file
+        if (!isProducer(inputs) && payloadOutput_.size())
+            saveOutput(output, inputs, reserved);
+    }
     else
         output->setText("");
+}
+
+void
+NamespaceDAT::saveOutput(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
+{
+    if (outputSaved_)
+        return;
+    
+    if (payloadOutput_.size())
+    {
+        if (retrieveOp(getCanonical(payloadOutput_)))
+        {
+            // save to TOP
+        }
+        else // save to a file
+        {
+            ofstream file(payloadOutput_, ios_base::out | ios_base::binary);
+            if (file)
+            {
+                file.write(namespace_->getBlobObject().toRawStr().data(), namespace_->getBlobObject().toRawStr().size());
+                if (!file)
+                {
+                    setError("Unable to write to file %s", payloadOutput_.c_str());
+                    OPLOG_ERROR("Failed to write to file {}", payloadOutput_);
+                }
+                else
+                    outputSaved_ = true;
+            }
+            else
+            {
+                setError("Unable to open file %s", payloadOutput_.c_str());
+                OPLOG_ERROR("Failed to open file {}", payloadOutput_);
+            }
+        }
+    }
 }
 
 shared_ptr<ndn::Blob>
@@ -531,6 +572,8 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
             setError("Unsupported handler type");
             break;
     }
+
+    outputSaved_ = false;
 }
 
 #define NDEFAULT_ROWS 3

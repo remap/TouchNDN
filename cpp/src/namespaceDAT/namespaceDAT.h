@@ -76,7 +76,7 @@ private:
     FaceDAT *faceDatOp_;
     KeyChainDAT *keyChainDatOp_;
     std::shared_ptr<cnl_cpp::Namespace> namespace_;
-    bool rawOutput_;
+    bool rawOutput_, outputSaved_;
     typedef std::vector<std::pair<std::string, std::string>> NamespaceInfoRows;
     std::shared_ptr<NamespaceInfoRows> namespaceInfoRows_;
     std::shared_ptr<bool> prefixRegistered_;
@@ -98,6 +98,7 @@ private:
     void runPublish(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
+    void saveOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
     std::shared_ptr<ndn::Blob> getPayload(const OP_Inputs*, std::string& contentType) const;
 };
 
