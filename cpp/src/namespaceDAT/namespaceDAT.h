@@ -19,15 +19,18 @@
  */
 
 #include <string>
+#include <atomic>
 
+#include <cnl-cpp/namespace.hpp>
 #include "baseDAT.hpp"
 
 namespace ndn {
-    class Blob;
+    class Object;
 }
 
 namespace cnl_cpp {
     class Namespace;
+    class BlobObject;
 }
 
 namespace touch_ndn
@@ -54,12 +57,6 @@ public:
 
     virtual void getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1);
 	virtual void execute(DAT_Output*, const OP_Inputs*, void* reserved) override;
-
-//    virtual int32_t        getNumInfoCHOPChans(void* reserved1) override;
-//    virtual void        getInfoCHOPChan(int index,
-//                                        OP_InfoCHOPChan* chan, 
-//                                        void* reserved1) override;
-//
     virtual bool        getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
     virtual void        getInfoDATEntries(int32_t index,
                                             int32_t nEntries,
@@ -76,10 +73,15 @@ private:
     FaceDAT *faceDatOp_;
     KeyChainDAT *keyChainDatOp_;
     std::shared_ptr<cnl_cpp::Namespace> namespace_;
-    bool rawOutput_, outputSaved_;
+    bool rawOutput_, payloadStored_, mustBeFresh_;
     typedef std::vector<std::pair<std::string, std::string>> NamespaceInfoRows;
     std::shared_ptr<NamespaceInfoRows> namespaceInfoRows_;
     std::shared_ptr<bool> prefixRegistered_;
+    
+    uint64_t onStateChangedCallbackId_;
+    std::shared_ptr<std::atomic<cnl_cpp::NamespaceState>> namespaceState_;
+    const std::shared_ptr<std::shared_ptr<cnl_cpp::Object>> namespaceObject_;
+    
     
     virtual void initPulsed() override;
     virtual void onOpUpdate(OP_Common*, const std::string&) override;
@@ -98,7 +100,7 @@ private:
     void runPublish(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
-    void saveOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
+    void storeOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
     std::shared_ptr<ndn::Blob> getPayload(const OP_Inputs*, std::string& contentType) const;
 };
 

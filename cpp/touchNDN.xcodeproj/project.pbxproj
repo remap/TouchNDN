@@ -25,6 +25,12 @@
 		AF70154C22C431CE009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */; };
 		AF70154D22C43293009D35F6 /* keyChainDAT.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */; };
 		AF70155022C4368A009D35F6 /* foundation-helpers.mm in Sources */ = {isa = PBXBuildFile; fileRef = AF70154F22C4368A009D35F6 /* foundation-helpers.mm */; };
+		AF8A4CB022FE311E008A48A5 /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
+		AF8A4CB522FE311E008A48A5 /* libtouchndn-helper.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */; };
+		AF8A4CC222FE313A008A48A5 /* baseTOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF8A4CA722FE3024008A48A5 /* baseTOP.cpp */; };
+		AF8A4CC322FE314D008A48A5 /* payloadTOP.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF8A4CC022FE311E008A48A5 /* payloadTOP.plugin */; };
+		AF8A4CCB22FE32C2008A48A5 /* payloadTOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF8A4CC822FE32C2008A48A5 /* payloadTOP.cpp */; };
+		AF8A4CCD22FE47E6008A48A5 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF8A4CCC22FE47E6008A48A5 /* OpenGL.framework */; };
 		AFB405F922C2B6D30036C08A /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AFB405F622C2B6D30036C08A /* LICENSE */; };
 		AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
 		AFCD77B422E78C410000302C /* key-chain-manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77B322E78C410000302C /* key-chain-manager.cpp */; };
@@ -46,6 +52,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AF8A4CCE22FE489A008A48A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E227270721B6EE9A00905532 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AF8A4CA922FE311E008A48A5;
+			remoteInfo = payloadTOP;
+		};
 		AF97EA6622F5667800F1D604 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E227270721B6EE9A00905532 /* Project object */;
@@ -111,6 +124,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF8A4CBB22FE311E008A48A5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$PROJECT_DIR/touchndn-plugins";
+			dstSubfolderSpec = 0;
+			files = (
+				AF8A4CC322FE314D008A48A5 /* payloadTOP.plugin in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AFCD77CC22E8DBFC0000302C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -155,6 +178,14 @@
 		AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey; sourceTree = "<group>"; };
 		AF70154E22C4368A009D35F6 /* foundation-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "foundation-helpers.h"; path = "src/common/foundation-helpers.h"; sourceTree = "<group>"; };
 		AF70154F22C4368A009D35F6 /* foundation-helpers.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "foundation-helpers.mm"; path = "src/common/foundation-helpers.mm"; sourceTree = "<group>"; };
+		AF8A4CA622FE2FF6008A48A5 /* TOP_CPlusPlusBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = TOP_CPlusPlusBase.h; path = src/common/TOP_CPlusPlusBase.h; sourceTree = "<group>"; };
+		AF8A4CA722FE3024008A48A5 /* baseTOP.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = baseTOP.cpp; path = src/common/baseTOP.cpp; sourceTree = "<group>"; };
+		AF8A4CA822FE3024008A48A5 /* baseTOP.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = baseTOP.hpp; path = src/common/baseTOP.hpp; sourceTree = "<group>"; };
+		AF8A4CC022FE311E008A48A5 /* payloadTOP.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = payloadTOP.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF8A4CC822FE32C2008A48A5 /* payloadTOP.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = payloadTOP.cpp; path = src/payloadTOP/payloadTOP.cpp; sourceTree = "<group>"; };
+		AF8A4CC922FE32C2008A48A5 /* payloadTOP.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = payloadTOP.hpp; path = src/payloadTOP/payloadTOP.hpp; sourceTree = "<group>"; };
+		AF8A4CCA22FE32C2008A48A5 /* payloadTOP.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = payloadTOP.plist; path = src/payloadTOP/payloadTOP.plist; sourceTree = "<group>"; };
+		AF8A4CCC22FE47E6008A48A5 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		AFB405F622C2B6D30036C08A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		AFB405F722C2B6D30036C08A /* apr_base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = apr_base64.c; sourceTree = "<group>"; };
 		AFB405F822C2B6D30036C08A /* apr_base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = apr_base64.h; sourceTree = "<group>"; };
@@ -177,6 +208,15 @@
 			files = (
 				AFCD780122F15E050000302C /* libtouchndn-helper.0.dylib in Frameworks */,
 				AF70153222C42EE8009D35F6 /* libndn-cpp.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF8A4CB422FE311E008A48A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF8A4CCD22FE47E6008A48A5 /* OpenGL.framework in Frameworks */,
+				AF8A4CB522FE311E008A48A5 /* libtouchndn-helper.0.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,11 +253,14 @@
 				AFB405F422C2B6D30036C08A /* contrib */,
 				AF5A94F222B4562F00662FAD /* CPlusPlus_Common.h */,
 				AF5A94F422B4562F00662FAD /* DAT_CPlusPlusBase.h */,
+				AF8A4CA622FE2FF6008A48A5 /* TOP_CPlusPlusBase.h */,
 				AF5A94F322B4562F00662FAD /* GL_Extensions.h */,
 				AF5A950F22B4621000662FAD /* baseDAT.cpp */,
 				AF5A951022B4621000662FAD /* baseDAT.hpp */,
 				AF5A951D22B4A1F400662FAD /* baseOP.cpp */,
 				AF5A951E22B4A1F400662FAD /* baseOP.hpp */,
+				AF8A4CA722FE3024008A48A5 /* baseTOP.cpp */,
+				AF8A4CA822FE3024008A48A5 /* baseTOP.hpp */,
 			);
 			name = common;
 			sourceTree = "<group>";
@@ -284,6 +327,7 @@
 		AF5A951222B46D3100662FAD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				AF8A4CCC22FE47E6008A48A5 /* OpenGL.framework */,
 				AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */,
 				AF56822B22E0FE130033113F /* libcrypto.1.0.0.dylib */,
 			);
@@ -316,6 +360,16 @@
 				AF70154422C42F97009D35F6 /* c78624458f1107d962df66aae9fa8a208c8efd70c34ef89cc46ec4e0ad36484a.privkey */,
 			);
 			path = "ndnsec-key-file";
+			sourceTree = "<group>";
+		};
+		AF8A4CC722FE328E008A48A5 /* payloadTOP */ = {
+			isa = PBXGroup;
+			children = (
+				AF8A4CC822FE32C2008A48A5 /* payloadTOP.cpp */,
+				AF8A4CC922FE32C2008A48A5 /* payloadTOP.hpp */,
+				AF8A4CCA22FE32C2008A48A5 /* payloadTOP.plist */,
+			);
+			name = payloadTOP;
 			sourceTree = "<group>";
 		};
 		AFB405F422C2B6D30036C08A /* contrib */ = {
@@ -353,6 +407,7 @@
 				E227270F21B6EE9A00905532 /* faceDAT.plugin */,
 				AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */,
 				AFCD77D122E8DBFC0000302C /* namespaceDAT.plugin */,
+				AF8A4CC022FE311E008A48A5 /* payloadTOP.plugin */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -360,6 +415,7 @@
 		E227271121B6EE9A00905532 /* touchNDN */ = {
 			isa = PBXGroup;
 			children = (
+				AF8A4CC722FE328E008A48A5 /* payloadTOP */,
 				AF5A94E022B4439D00662FAD /* contentCacheDAT */,
 				AF5A94DF22B4439300662FAD /* namespaceDAT */,
 				AF5A94DE22B4438900662FAD /* keyChainDAT */,
@@ -393,6 +449,24 @@
 			productReference = AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */;
 			productType = "com.apple.product-type.bundle";
 		};
+		AF8A4CA922FE311E008A48A5 /* payloadTOP */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF8A4CBD22FE311E008A48A5 /* Build configuration list for PBXNativeTarget "payloadTOP" */;
+			buildPhases = (
+				AF8A4CAE22FE311E008A48A5 /* Sources */,
+				AF8A4CB422FE311E008A48A5 /* Frameworks */,
+				AF8A4CBA22FE311E008A48A5 /* ShellScript */,
+				AF8A4CBB22FE311E008A48A5 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = payloadTOP;
+			productName = CPlusPlusDATExample;
+			productReference = AF8A4CC022FE311E008A48A5 /* payloadTOP.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
 		AFCD77B722E8DBFC0000302C /* namespaceDAT */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AFCD77CE22E8DBFC0000302C /* Build configuration list for PBXNativeTarget "namespaceDAT" */;
@@ -407,6 +481,7 @@
 			dependencies = (
 				AF97EA6722F5667800F1D604 /* PBXTargetDependency */,
 				AF97EA6922F5667A00F1D604 /* PBXTargetDependency */,
+				AF8A4CCF22FE489A008A48A5 /* PBXTargetDependency */,
 			);
 			name = namespaceDAT;
 			productName = CPlusPlusDATExample;
@@ -462,6 +537,7 @@
 				E227270E21B6EE9A00905532 /* faceDAT */,
 				AF70152A22C42EE8009D35F6 /* keyChainDAT */,
 				AFCD77B722E8DBFC0000302C /* namespaceDAT */,
+				AF8A4CA922FE311E008A48A5 /* payloadTOP */,
 			);
 		};
 /* End PBXProject section */
@@ -487,6 +563,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		AF8A4CBA22FE311E008A48A5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath -i /usr/local/lib || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
+		};
 		AF9A337522E0F3E20070C803 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -555,6 +648,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF8A4CAE22FE311E008A48A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF8A4CB022FE311E008A48A5 /* baseOP.cpp in Sources */,
+				AF8A4CCB22FE32C2008A48A5 /* payloadTOP.cpp in Sources */,
+				AF8A4CC222FE313A008A48A5 /* baseTOP.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AFCD77B822E8DBFC0000302C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -583,6 +686,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AF8A4CCF22FE489A008A48A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AF8A4CA922FE311E008A48A5 /* payloadTOP */;
+			targetProxy = AF8A4CCE22FE489A008A48A5 /* PBXContainerItemProxy */;
+		};
 		AF97EA6722F5667800F1D604 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = E227270E21B6EE9A00905532 /* faceDAT */;
@@ -622,6 +730,32 @@
 				INFOPLIST_FILE = keyChainDAT.plist;
 				INSTALL_PATH = /;
 				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.keyChainDAT;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Release;
+		};
+		AF8A4CBE22FE311E008A48A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/src/payloadTOP/payloadTOP.plist";
+				INSTALL_PATH = /;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.payloadTOP;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Debug;
+		};
+		AF8A4CBF22FE311E008A48A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/src/payloadTOP/payloadTOP.plist";
+				INSTALL_PATH = /;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.payloadTOP;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -839,6 +973,15 @@
 			buildConfigurations = (
 				AF70153922C42EE8009D35F6 /* Debug */,
 				AF70153A22C42EE8009D35F6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AF8A4CBD22FE311E008A48A5 /* Build configuration list for PBXNativeTarget "payloadTOP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF8A4CBE22FE311E008A48A5 /* Debug */,
+				AF8A4CBF22FE311E008A48A5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

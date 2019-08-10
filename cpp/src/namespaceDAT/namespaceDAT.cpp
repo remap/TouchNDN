@@ -34,6 +34,7 @@
 
 #include "faceDAT.h"
 #include "keyChainDAT.h"
+#include "payloadTOP.hpp"
 #include "key-chain-manager.hpp"
 #include "face-processor.hpp"
 
@@ -79,6 +80,25 @@ const map<string, NamespaceDAT::HandlerType> HandlerTypeMap = {
     { PAR_HANDLER_SEGMENTED, NamespaceDAT::HandlerType::Segmented },
     { PAR_HANDLER_GOBJ, NamespaceDAT::HandlerType::GObj },
     { PAR_HANDLER_GOSTREAM, NamespaceDAT::HandlerType::GObjStream },
+};
+
+const map<NamespaceState, string> NamespaceStateMap = {
+    { NamespaceState_NAME_EXISTS, "NAME_EXISTS" },
+    { NamespaceState_INTEREST_EXPRESSED, "INTEREST_EXPRESSED" },
+    { NamespaceState_INTEREST_TIMEOUT, "INTEREST_TIMEOUT" },
+    { NamespaceState_INTEREST_NETWORK_NACK, "INTEREST_NETWORK_NACK" },
+    { NamespaceState_DATA_RECEIVED, "DATA_RECEIVED" },
+    { NamespaceState_DESERIALIZING, "DESERIALIZING" },
+    { NamespaceState_DECRYPTING, "DECRYPTING" },
+    { NamespaceState_DECRYPTION_ERROR, "DECRYPTION_ERROR" },
+    { NamespaceState_PRODUCING_OBJECT, "PRODUCING_OBJECT" },
+    { NamespaceState_SERIALIZING, "SERIALIZING" },
+    { NamespaceState_ENCRYPTING, "ENCRYPTING" },
+    { NamespaceState_ENCRYPTION_ERROR, "ENCRYPTION_ERROR" },
+    { NamespaceState_SIGNING, "SIGNING" },
+    { NamespaceState_SIGNING_ERROR, "SIGNING_ERROR" },
+    { NamespaceState_OBJECT_READY, "OBJECT_READY" },
+    { NamespaceState_OBJECT_READY_BUT_STALE, "OBJECT_READY_BUT_STALE" }
 };
 
 namespace touch_ndn {
@@ -138,12 +158,17 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , namespaceInfoRows_(make_shared<NamespaceInfoRows>())
 , payloadInput_("")
 , payloadOutput_("")
+, onStateChangedCallbackId_(0)
+, mustBeFresh_(true)
+, namespaceState_(make_shared<atomic<NamespaceState>>())
+, namespaceObject_(make_shared<shared_ptr<cnl_cpp::Object>>())
 {
     OPLOG_DEBUG("Created NamespaceDAT");
 }
 
 NamespaceDAT::~NamespaceDAT()
 {
+    releaseNamespace(nullptr, nullptr, nullptr);
     OPLOG_DEBUG("Released NamespaceDAT");
 }
 
@@ -168,7 +193,7 @@ NamespaceDAT::execute(DAT_Output* output,
     if (namespace_ && namespace_->getFace_())
     {
         bool isFetching = !isProducer(inputs);
-        switch (namespace_->getState()) {
+        switch (namespaceState_->load()) {
             case NamespaceState_NAME_EXISTS:
             {
                 if (isFetching)
@@ -179,7 +204,7 @@ NamespaceDAT::execute(DAT_Output* output,
                 break;
             case NamespaceState_OBJECT_READY:
             {
-                setOutput(output, inputs, reserved);
+                // do nothing
             }
                 break;
             default:
@@ -187,44 +212,56 @@ NamespaceDAT::execute(DAT_Output* output,
                 break;
         }
     }
-    else
-        setOutput(output, inputs, reserved);
+
+    setOutput(output, inputs, reserved);
 }
 
 void
 NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved)
 {
-    if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
+    if (namespaceState_->load() == NamespaceState_OBJECT_READY)
     {
         switch (handlerType_)
         {
             case HandlerType::None: // fallthrough
             case HandlerType::Segmented: // fallthrough
             case HandlerType::GObj:
-                if (rawOutput_)
-                    output->setText(namespace_->getBlobObject().toRawStr().c_str());
-                else
-                    output->setText(BaseDAT::toBase64(namespace_->getBlobObject()).c_str());
+                {
+                    assert(*namespaceObject_);
+                    shared_ptr<BlobObject> b = dynamic_pointer_cast<BlobObject>(*namespaceObject_);
+                    if (b)
+                    {
+                        clearError();
+                        if (rawOutput_)
+                            output->setText(b->toRawStr().c_str());
+                        else
+                            output->setText(BaseDAT::toBase64(b->getBlob()).c_str());
+                    }
+                    else
+                    {
+                        setError("Failed to process received object");
+                        OPLOG_ERROR("Failed to cast received Object to BlobObject");
+                    }
+                }
                 break;
             default:
                 break;
         } // switch
         
         // for consumer -- check if need to save to a TOP or a file
-        if (!isProducer(inputs) && payloadOutput_.size())
-            saveOutput(output, inputs, reserved);
+        storeOutput(output, inputs, reserved);
     }
     else
         output->setText("");
 }
 
 void
-NamespaceDAT::saveOutput(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
+NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    if (outputSaved_)
-        return;
+    bool storePayload = !isProducer(inputs) && payloadOutput_.size() && !payloadStored_;
     
-    if (payloadOutput_.size())
+    if (namespaceState_->load() == NamespaceState_OBJECT_READY &&
+        storePayload)
     {
         if (retrieveOp(getCanonical(payloadOutput_)))
         {
@@ -235,14 +272,25 @@ NamespaceDAT::saveOutput(DAT_Output *output, const OP_Inputs *inputs, void *rese
             ofstream file(payloadOutput_, ios_base::out | ios_base::binary);
             if (file)
             {
-                file.write(namespace_->getBlobObject().toRawStr().data(), namespace_->getBlobObject().toRawStr().size());
-                if (!file)
+                shared_ptr<BlobObject> blobObject = dynamic_pointer_cast<BlobObject>(*namespaceObject_);
+                if (blobObject)
                 {
-                    setError("Unable to write to file %s", payloadOutput_.c_str());
-                    OPLOG_ERROR("Failed to write to file {}", payloadOutput_);
+                    file.write((const char*)blobObject->getBlob().buf(), blobObject->getBlob().size());
+                    if (!file)
+                    {
+                        setError("Unable to write to file %s", payloadOutput_.c_str());
+                        OPLOG_ERROR("Failed to write to file {}", payloadOutput_);
+                    }
+                    else
+                    {
+                        clearError();
+                        payloadStored_ = true;
+                    }
                 }
                 else
-                    outputSaved_ = true;
+                {
+                    OPLOG_ERROR("Failed to cast received Object to BlobObject");
+                }
             }
             else
             {
@@ -276,7 +324,11 @@ NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType) const
         if (retrieveOp(getCanonical(payloadInput_)))
         {
             // load payload from the TOP
-            return shared_ptr<Blob>();
+            PayloadTOP *payloadTop = (PayloadTOP*)retrieveOp(getCanonical(payloadInput_));
+            int size, w, h;
+            shared_ptr<vector<uint8_t>> buffer = payloadTop->getBuffer(size, w, h);
+            contentType = "image/x-bgra";
+            return make_shared<Blob>(buffer);
         }
         else // treat payloadInput_ as a path to a file
         {
@@ -349,7 +401,25 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
 
         clearError();
         
+        namespaceObject_->reset();
+        namespaceState_->store(NamespaceState_NAME_EXISTS);
         namespace_ = make_shared<Namespace>(prefix_, keyChain);
+        
+        shared_ptr<atomic<NamespaceState>> namespaceState = namespaceState_;
+        shared_ptr<shared_ptr<cnl_cpp::Object>> receivedObject = namespaceObject_;
+        string outerNamespaceName = namespace_->getName().toUri();
+        onStateChangedCallbackId_ = namespace_->addOnStateChanged([namespaceState, receivedObject, outerNamespaceName]
+                                      (Namespace& n, Namespace& objectNamespace, NamespaceState state,
+                                       uint64_t callbackId)
+        {
+            if (outerNamespaceName == objectNamespace.getName().toUri())
+            {
+                if (state == NamespaceState_OBJECT_READY)
+                    *receivedObject = objectNamespace.getObject();
+                namespaceState->store(state);
+            }
+        });
+        
         if (isProducer)
         {
             MetaInfo metaInfo;
@@ -367,9 +437,10 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         shared_ptr<helpers::logger> logger = logger_;
         shared_ptr<Namespace> nmspc = namespace_;
         shared_ptr<bool> prefixRegistered = prefixRegistered_;
-        faceDatOp_->getFaceProcessor()->dispatchSynchronized([isProducer,nmspc,logger,prefixRegistered](shared_ptr<Face> f){
+        faceDatOp_->getFaceProcessor()->
+            dispatchSynchronized([isProducer,nmspc,logger,prefixRegistered](shared_ptr<Face> f){
             logger->debug("Set face for namespace {}", nmspc->getName().toUri());
-
+            
             if (isProducer)
                 nmspc->setFace(f.get(),
                                [logger](const shared_ptr<const Name>& n){
@@ -391,6 +462,7 @@ NamespaceDAT::releaseNamespace(DAT_Output*output, const OP_Inputs* inputs, void*
 {
     if (namespace_.get())
     {
+        namespace_->removeCallback(onStateChangedCallbackId_);
         namespace_->setFace(nullptr);
         namespace_.reset();
     }
@@ -543,25 +615,28 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
 {
     switch (handlerType_)
     {
-        case HandlerType::None :
-            namespace_->objectNeeded();
+        case HandlerType::None:
+            namespace_->objectNeeded(mustBeFresh_);
             OPLOG_DEBUG("Data packet requested: {}", namespace_->getName().toUri());
             break;
         case HandlerType::Segmented:
-            SegmentedObjectHandler(namespace_.get()).objectNeeded();
+            SegmentedObjectHandler(namespace_.get()).objectNeeded(mustBeFresh_);
             OPLOG_DEBUG("Segmented data requested {}", namespace_->getName().toUri());
             break;
         case HandlerType::GObj:
         {
             shared_ptr<NamespaceInfoRows> metaInfoRows = namespaceInfoRows_;
             bool rawOutput = rawOutput_;
-            GeneralizedObjectHandler(namespace_.get(), [metaInfoRows, rawOutput](const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace&){
+            GeneralizedObjectHandler(namespace_.get(),
+                                     [metaInfoRows, rawOutput]
+                                     (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace &objectNamespace)
+            {
                 metaInfoRows->push_back(pair<string, string>("ContentType", contentMetaInfo->getContentType()));
                 metaInfoRows->push_back(pair<string, string>("Timestamp", to_string(contentMetaInfo->getTimestamp())));
                 
                 string other = (rawOutput ? contentMetaInfo->getOther().toRawStr() : BaseDAT::toBase64(contentMetaInfo->getOther()));
                 metaInfoRows->push_back(pair<string, string>("Other", other));
-            }).objectNeeded();
+            }).objectNeeded(mustBeFresh_);
             OPLOG_DEBUG("Generalized Object requested {}", namespace_->getName().toUri());
         }
             break;
@@ -573,7 +648,7 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
             break;
     }
 
-    outputSaved_ = false;
+    payloadStored_ = false;
 }
 
 #define NDEFAULT_ROWS 3
@@ -600,25 +675,6 @@ NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntri
     int nRows = nDefaultRows + (int)namespaceInfoRows_->size();
     if (index < nRows)
     {
-        static const map<NamespaceState, string> NamespaceStateMap = {
-            { NamespaceState_NAME_EXISTS, "NAME_EXISTS" },
-            { NamespaceState_INTEREST_EXPRESSED, "INTEREST_EXPRESSED" },
-            { NamespaceState_INTEREST_TIMEOUT, "INTEREST_TIMEOUT" },
-            { NamespaceState_INTEREST_NETWORK_NACK, "INTEREST_NETWORK_NACK" },
-            { NamespaceState_DATA_RECEIVED, "DATA_RECEIVED" },
-            { NamespaceState_DESERIALIZING, "DESERIALIZING" },
-            { NamespaceState_DECRYPTING, "DECRYPTING" },
-            { NamespaceState_DECRYPTION_ERROR, "DECRYPTION_ERROR" },
-            { NamespaceState_PRODUCING_OBJECT, "PRODUCING_OBJECT" },
-            { NamespaceState_SERIALIZING, "SERIALIZING" },
-            { NamespaceState_ENCRYPTING, "ENCRYPTING" },
-            { NamespaceState_ENCRYPTION_ERROR, "ENCRYPTION_ERROR" },
-            { NamespaceState_SIGNING, "SIGNING" },
-            { NamespaceState_SIGNING_ERROR, "SIGNING_ERROR" },
-            { NamespaceState_OBJECT_READY, "OBJECT_READY" },
-            { NamespaceState_OBJECT_READY_BUT_STALE, "OBJECT_READY_BUT_STALE" }
-        };
-        
         switch (index) {
             case 0:
                 entries->values[0]->setString("Full Name");
@@ -813,8 +869,14 @@ NamespaceDAT::paramsUpdated()
         dispatchOnExecute(bind(&NamespaceDAT::pairKeyChainDatOp, this, _1, _2, _3));
     });
     
-    runIfUpdated(PAR_OUTPUT, [this](){
-        if (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY)
+    runIfUpdated(PAR_RAWOUTPUT, [this](){
+        if (namespace_ && namespaceState_->load() == NamespaceState_OBJECT_READY)
             dispatchOnExecute(bind(&NamespaceDAT::setOutput, this, _1, _2, _3));
     });
+    
+    runIfUpdated(PAR_OUTPUT, [this](){
+        if (namespace_ && namespaceState_->load() == NamespaceState_OBJECT_READY)
+            dispatchOnExecute(bind(&NamespaceDAT::storeOutput, this, _1, _2, _3));
+    });
+    
 }

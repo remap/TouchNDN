@@ -18,34 +18,23 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
-#ifndef baseDAT_hpp
-#define baseDAT_hpp
+#include "baseTOP.hpp"
 
-#include <stdio.h>
+using namespace std;
+using namespace touch_ndn;
 
-#include "baseOP.hpp"
-#include "DAT_CPlusPlusBase.h"
-
-namespace ndn {
-    class Blob;
+BaseTOP::BaseTOP(const OP_NodeInfo *info)
+: BaseOp<TOP_CPlusPlusBase>(info)
+{
 }
 
-namespace touch_ndn {
-    
-    class BaseDAT : public BaseOp<DAT_CPlusPlusBase> {
-    public:
-        BaseDAT(const OP_NodeInfo* info);
-        ~BaseDAT();
-        
-        virtual void getGeneralInfo(DAT_GeneralInfo* ginfo,
-                                    const OP_Inputs* inputs,
-                                    void* reserved1) override;
-        
-        static std::string toBase64(const ndn::Blob&);
-        static void fromBase64(const std::string&, std::vector<uint8_t>&);
-    protected:
-        
-    };
+BaseTOP::~BaseTOP()
+{
 }
 
-#endif /* baseDAT_hpp */
+void
+BaseTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs*, void *reserved1)
+{
+    ginfo->cookEveryFrame = true;
+    ginfo->cookEveryFrameIfAsked = true;
+}
