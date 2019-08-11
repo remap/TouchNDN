@@ -32,6 +32,7 @@
 #include <cnl-cpp/generalized-object/generalized-object-handler.hpp>
 #include <cnl-cpp/generalized-object/generalized-object-stream-handler.hpp>
 
+#include "common/contrib/json11/json11.hpp"
 #include "faceDAT.h"
 #include "keyChainDAT.h"
 #include "payloadTOP.hpp"
@@ -162,6 +163,7 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , mustBeFresh_(true)
 , namespaceState_(make_shared<atomic<NamespaceState>>())
 , namespaceObject_(make_shared<shared_ptr<cnl_cpp::Object>>())
+, gobjContentMetaInfo_(make_shared<shared_ptr<ContentMetaInfoObject>>())
 {
     OPLOG_DEBUG("Created NamespaceDAT");
 }
@@ -263,33 +265,54 @@ NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *res
     if (namespaceState_->load() == NamespaceState_OBJECT_READY &&
         storePayload)
     {
+        shared_ptr<BlobObject> blobObject = dynamic_pointer_cast<BlobObject>(*namespaceObject_);
+        if (!blobObject)
+        {
+            OPLOG_ERROR("Failed to cast received Object to BlobObject");
+            return;
+        }
+        
         if (retrieveOp(getCanonical(payloadOutput_)))
         {
             // save to TOP
+            PayloadTOP *payloadTOP = (PayloadTOP*)retrieveOp(getCanonical(payloadOutput_));
+            assert(payloadTOP);
+            if (*gobjContentMetaInfo_)
+            {
+                string jsonErr;
+                json11::Json json = json11::Json::parse((*gobjContentMetaInfo_)->getOther().toRawStr(), jsonErr);
+                if (jsonErr.size() == 0)
+                {
+                    int w = json["width"].int_value();
+                    int h = json["height"].int_value();
+//                    int sz = json["size"].int_value();
+                    
+                    clearError();
+                    payloadTOP->setBuffer(*blobObject->getBlob(), w, h);
+                    payloadStored_ = true;
+                }
+                else
+                {
+                    setError("Error processing received object");
+                    OPLOG_ERROR("Received ContentMetaInfo is a bad JSON");
+                }
+            }
         }
         else // save to a file
         {
             ofstream file(payloadOutput_, ios_base::out | ios_base::binary);
             if (file)
             {
-                shared_ptr<BlobObject> blobObject = dynamic_pointer_cast<BlobObject>(*namespaceObject_);
-                if (blobObject)
+                file.write((const char*)blobObject->getBlob().buf(), blobObject->getBlob().size());
+                if (!file)
                 {
-                    file.write((const char*)blobObject->getBlob().buf(), blobObject->getBlob().size());
-                    if (!file)
-                    {
-                        setError("Unable to write to file %s", payloadOutput_.c_str());
-                        OPLOG_ERROR("Failed to write to file {}", payloadOutput_);
-                    }
-                    else
-                    {
-                        clearError();
-                        payloadStored_ = true;
-                    }
+                    setError("Unable to write to file %s", payloadOutput_.c_str());
+                    OPLOG_ERROR("Failed to write to file {}", payloadOutput_);
                 }
                 else
                 {
-                    OPLOG_ERROR("Failed to cast received Object to BlobObject");
+                    clearError();
+                    payloadStored_ = true;
                 }
             }
             else
@@ -302,7 +325,8 @@ NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *res
 }
 
 shared_ptr<ndn::Blob>
-NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType) const
+NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType,
+                         shared_ptr<Blob>& other) const
 {
     contentType = "text/html";
 
@@ -328,6 +352,13 @@ NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType) const
             int size, w, h;
             shared_ptr<vector<uint8_t>> buffer = payloadTop->getBuffer(size, w, h);
             contentType = "image/x-bgra";
+            
+            json11::Json json = json11::Json::object {
+                { "width", w },
+                { "height", h },
+                { "size", size }
+            };
+            other = make_shared<Blob>(Blob::fromRawStr(json.dump()));
             return make_shared<Blob>(buffer);
         }
         else // treat payloadInput_ as a path to a file
@@ -346,7 +377,11 @@ NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType) const
                     OPLOG_ERROR("Failed to read {} bytes from file {}", sz, payloadInput_);
                 }
                 else
+                {
                     b = make_shared<Blob>(buf);
+                    // TODO: set content type according to the extension
+                    contentType = "text/html";
+                }
             }
             else
                 OPLOG_ERROR("Failed to open file {}", payloadInput_);
@@ -401,6 +436,7 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
 
         clearError();
         
+        gobjContentMetaInfo_->reset();
         namespaceObject_->reset();
         namespaceState_->store(NamespaceState_NAME_EXISTS);
         namespace_ = make_shared<Namespace>(prefix_, keyChain);
@@ -554,7 +590,8 @@ void
 NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
     string contentType;
-    shared_ptr<Blob> payload = getPayload(inputs, contentType);
+    shared_ptr<Blob> other;
+    shared_ptr<Blob> payload = getPayload(inputs, contentType, other);
     
     if (!payload || payload->size() == 0)
     {
@@ -578,7 +615,10 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
                 break;
             case HandlerType::GObj:
             {
-                GeneralizedObjectHandler().setObject(*namespace_, *payload, contentType);
+                if (other)
+                    GeneralizedObjectHandler().setObject(*namespace_, *payload, contentType, *other);
+                else
+                    GeneralizedObjectHandler().setObject(*namespace_, *payload, contentType);
             }
                 break;
             case HandlerType::GObjStream:
@@ -625,10 +665,11 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
             break;
         case HandlerType::GObj:
         {
+            shared_ptr<shared_ptr<ContentMetaInfoObject>> gobjContentMetaInfo = gobjContentMetaInfo_;
             shared_ptr<NamespaceInfoRows> metaInfoRows = namespaceInfoRows_;
             bool rawOutput = rawOutput_;
             GeneralizedObjectHandler(namespace_.get(),
-                                     [metaInfoRows, rawOutput]
+                                     [metaInfoRows, rawOutput, gobjContentMetaInfo]
                                      (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace &objectNamespace)
             {
                 metaInfoRows->push_back(pair<string, string>("ContentType", contentMetaInfo->getContentType()));
@@ -636,6 +677,7 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
                 
                 string other = (rawOutput ? contentMetaInfo->getOther().toRawStr() : BaseDAT::toBase64(contentMetaInfo->getOther()));
                 metaInfoRows->push_back(pair<string, string>("Other", other));
+                *gobjContentMetaInfo = contentMetaInfo;
             }).objectNeeded(mustBeFresh_);
             OPLOG_DEBUG("Generalized Object requested {}", namespace_->getName().toUri());
         }

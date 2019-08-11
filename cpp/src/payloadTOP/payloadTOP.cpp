@@ -163,12 +163,3 @@ PayloadTOP::execute(TOP_OutputFormatSpecs* outputFormat,
     outputFormat->newCPUPixelDataLocation = textureMemoryLocation;
     textureMemoryLocation = !textureMemoryLocation;
 }
-
-void
-PayloadTOP::allocateBuffer(int w, int h)
-{
-    bufferWidth_ = w;
-    bufferHeight_ = h;
-    bufferSize_ = w*h*4*sizeof(uint8_t);
-    buffer_ = make_shared<vector<uint8_t>>(bufferSize_);
-}

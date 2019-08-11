@@ -51,14 +51,25 @@ namespace touch_ndn {
             return buffer_;
         }
         
-        void setBuffer();
+        void setBuffer(const std::vector<uint8_t> &buffer, int width, int height)
+        {
+            allocateBuffer(width, height);
+            assert(bufferSize_ == buffer.size());
+            memcpy(buffer_->data(), buffer.data(), bufferSize_);
+        }
 
     private:
         int bufferSize_, bufferWidth_, bufferHeight_;
         uint64_t lastBufferUpdate_;
         std::shared_ptr<std::vector<uint8_t>> buffer_;
         
-        void allocateBuffer(int w, int h);
+        void allocateBuffer(int w, int h)
+        {
+            bufferWidth_ = w;
+            bufferHeight_ = h;
+            bufferSize_ = w*h*4*sizeof(uint8_t);
+            buffer_ = std::make_shared<std::vector<uint8_t>>(bufferSize_);
+        }
     };
 }
 

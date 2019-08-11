@@ -31,6 +31,7 @@ namespace ndn {
 namespace cnl_cpp {
     class Namespace;
     class BlobObject;
+    class ContentMetaInfoObject;
 }
 
 namespace touch_ndn
@@ -80,8 +81,8 @@ private:
     
     uint64_t onStateChangedCallbackId_;
     std::shared_ptr<std::atomic<cnl_cpp::NamespaceState>> namespaceState_;
+    const std::shared_ptr<std::shared_ptr<cnl_cpp::ContentMetaInfoObject>> gobjContentMetaInfo_;
     const std::shared_ptr<std::shared_ptr<cnl_cpp::Object>> namespaceObject_;
-    
     
     virtual void initPulsed() override;
     virtual void onOpUpdate(OP_Common*, const std::string&) override;
@@ -101,7 +102,8 @@ private:
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
     void storeOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
-    std::shared_ptr<ndn::Blob> getPayload(const OP_Inputs*, std::string& contentType) const;
+    std::shared_ptr<ndn::Blob> getPayload(const OP_Inputs*, std::string& contentType,
+                                          std::shared_ptr<ndn::Blob>& other) const;
 };
 
 }
