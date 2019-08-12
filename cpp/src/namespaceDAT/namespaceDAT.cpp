@@ -57,6 +57,8 @@
 #define PAR_OUTPUT_LABEL "Payload Output"
 #define PAR_RAWOUTPUT "Rawoutput"
 #define PAR_RAWOUTPUT_LABEL "Raw Output"
+#define PAR_GOBJ_VERSIONED "Gobjversioned"
+#define PAR_GOBJ_VERSIONED_LABEL "Versioned"
 
 #define PAR_HANDLER_NONE "Handlernone"
 #define PAR_HANDLER_NONE_LABEL "None"
@@ -149,22 +151,289 @@ extern "C"
     
 };
 
+class NamespaceDAT::Impl : public enable_shared_from_this<NamespaceDAT::Impl> {
+public:
+    Impl(shared_ptr<helpers::logger> &l) :
+      handlerType_(HandlerType::GObj)
+    , prefixRegistered_(false)
+    , logger_(l) {}
+    ~Impl(){}
+    
+    shared_ptr<helpers::logger> logger_;
+    HandlerType handlerType_;
+    shared_ptr<Namespace> namespace_;
+    bool produceOnRequest_, prefixRegistered_;
+    
+    typedef struct _ObjectReadyPayload {
+        // be careful with this raw pointer...
+        cnl_cpp::Namespace* objectNamespace_;
+        std::shared_ptr<cnl_cpp::Object> object_;
+        std::shared_ptr<cnl_cpp::ContentMetaInfoObject> contentMetaInfo_;
+    } ObjectReadyPayload;
+    ObjectReadyPayload objectReadyPayload_;
+    
+    class PayloadData {
+    public:
+        static shared_ptr<PayloadData> fromDatInputData(shared_ptr<DatInputData> datInputData)
+        {
+            if (datInputData->handlerType_ == HandlerType::GObj ||
+                datInputData->handlerType_ == HandlerType::GObjStream)
+                return make_shared<GObjPayloadData>(datInputData);
+            return make_shared<PayloadData>(datInputData);
+        }
+        
+        PayloadData(shared_ptr<DatInputData> datInputData)
+        {
+            metaInfo_ = *datInputData->metaInfo_;
+            payload_ = datInputData->payload_;
+        }
+        virtual ~PayloadData(){}
+        
+        MetaInfo metaInfo_;
+        shared_ptr<Blob> payload_;
+    };
+    
+    class GObjPayloadData : public PayloadData {
+    public:
+        GObjPayloadData(shared_ptr<DatInputData> datInputData)
+        : PayloadData(datInputData)
+        {
+            assert((datInputData->handlerType_ == HandlerType::GObj ||
+                    datInputData->handlerType_ == HandlerType::GObjStream));
+            
+            if (datInputData->inputFile_.size())
+            {
+                payload_ = NamespaceDAT::readFile(datInputData->inputFile_, contentType_, other_);
+            }
+            else
+            {
+                contentType_ = datInputData->contentType_;
+                other_ = datInputData->other_;
+            }
+        }
+        
+        string contentType_;
+        shared_ptr<Blob> other_;
+    };
+    
+    shared_ptr<PayloadData> producedPayloadData_;
+    vector<uint64_t> registeredCallbacks_;
+    
+    bool getIsObjectReady() const
+    {
+        return namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY;
+    }
+    
+    void initNamespace(string prefix, KeyChain *keyChain)
+    {
+        objectReadyPayload_ = ObjectReadyPayload();
+        
+        namespace_ = make_shared<Namespace>(prefix, keyChain);
+        shared_ptr<Impl> me = shared_from_this();
+        
+        uint64_t cbId = namespace_->addOnStateChanged(
+        [this, me](Namespace& n, Namespace& on, NamespaceState state, uint64_t cbId)
+        {
+            if (on.getName() == namespace_->getName())
+            {
+                // ???
+            }
+        });
+        
+        registeredCallbacks_.push_back(cbId);
+    }
+    
+    void releaseNamespace()
+    {
+        if (namespace_)
+        {
+            for (auto cbId:registeredCallbacks_)
+                namespace_->removeCallback(cbId);
+            namespace_->setFace(nullptr);
+            namespace_.reset();
+        }
+    }
+    
+    void setFace(shared_ptr<helpers::FaceProcessor> faceProcessor,
+                 bool registerPrefix = false)
+    {
+        shared_ptr<Impl> me = shared_from_this();
+        faceProcessor->dispatchSynchronized([this, me, registerPrefix](shared_ptr<Face> f)
+        {
+            logger_->debug("Set face for namespace {}", namespace_->getName().toUri());
+            
+            if (registerPrefix)
+                namespace_->setFace(f.get(),
+                               [me](const shared_ptr<const Name>& n){
+                                   me->logger_->error("Failed to register prefix {}", n->toUri());
+                               },
+                               [me](const shared_ptr<const Name>& n,
+                                                         uint64_t registeredPrefixId){
+                                   me->prefixRegistered_ = true;
+                                   me->logger_->debug("Registered prefix {}", n->toUri());
+                               });
+            else
+                namespace_->setFace(f.get());
+        });
+    }
+    
+    void produceOnRequest(function<shared_ptr<PayloadData>()> getPayloadData,
+                          bool versioned = false)
+    {
+        shared_ptr<Impl> me = shared_from_this();
+        uint64_t cbId =
+        namespace_->addOnObjectNeeded([this,me,versioned,getPayloadData]
+                                      (Namespace& n, Namespace& neededNamespace, uint64_t)
+        {
+            return produceNow(*namespace_, getPayloadData(), versioned);
+        });
+        registeredCallbacks_.push_back(cbId);
+    }
+    
+    bool produceNow(Namespace &n, shared_ptr<PayloadData> payloadData, bool versioned = false)
+    {
+        objectReadyPayload_.contentMetaInfo_.reset();
+        objectReadyPayload_.object_.reset();
+        objectReadyPayload_.objectNamespace_ = nullptr;
+        
+        Namespace &objectNamespace = versioned ?
+            n[Name::Component::fromVersion((uint64_t)ndn_getNowMilliseconds())] : n;
+        objectNamespace.setNewDataMetaInfo(payloadData->metaInfo_);
+        
+        try {
+            switch (handlerType_)
+            {
+                case HandlerType::None:
+                {
+                    objectNamespace.serializeObject(make_shared<BlobObject>(*payloadData->payload_));
+                }
+                    break;
+                case HandlerType::Segmented:
+                {
+                    SegmentStreamHandler().setObject(objectNamespace, *payloadData->payload_);
+                }
+                    break;
+                case HandlerType::GObj:
+                {
+                    shared_ptr<GObjPayloadData> pd = dynamic_pointer_cast<GObjPayloadData>(payloadData);
+                    assert(pd);
+                    if (pd->other_)
+                        GeneralizedObjectHandler().setObject(objectNamespace, *pd->payload_, pd->contentType_, *pd->other_);
+                    else
+                        GeneralizedObjectHandler().setObject(objectNamespace, *pd->payload_, pd->contentType_);
+                    
+                    ndntools::ContentMetaInfo cMetaInfo;
+                    cMetaInfo.wireDecode(*objectNamespace[Name::Component("_meta")].getBlobObject());
+                    objectReadyPayload_.contentMetaInfo_ = make_shared<ContentMetaInfoObject>(cMetaInfo);
+                }
+                    break;
+                case HandlerType::GObjStream:
+                    // tbd
+                    break;
+                default:
+                    break;
+            }
+            
+            //        clearWarning();
+            //        clearError();
+            objectReadyPayload_.objectNamespace_ = &objectNamespace;
+            objectReadyPayload_.object_ = objectNamespace.getObject();
+            logger_->debug("Published data under {}", n.getName().toUri());
+            
+            return true;
+        }
+        catch (std::runtime_error &e)
+        {
+            //        setError(e.what());
+            logger_->error("Error while publishing: {}", e.what());
+        }
+        
+        return false;
+    }
+    
+    void fetch(bool mustBeFresh, bool versioned = false)
+    {
+        objectReadyPayload_.contentMetaInfo_.reset();
+        objectReadyPayload_.object_.reset();
+        objectReadyPayload_.objectNamespace_ = nullptr;
+        
+        shared_ptr<Impl> me = shared_from_this();
+        switch (handlerType_)
+        {
+            case HandlerType::None:
+                namespace_->objectNeeded(mustBeFresh);
+                logger_->debug("Data packet requested: {}", namespace_->getName().toUri());
+                break;
+            case HandlerType::Segmented:
+                SegmentedObjectHandler(namespace_.get(), [this,me](Namespace& objectNamespace)
+                                       {
+                                           objectReadyPayload_.objectNamespace_ = &objectNamespace;
+                                           objectReadyPayload_.object_ =  objectNamespace.getObject();
+                                       }).objectNeeded(mustBeFresh);
+                logger_->debug("Segmented data requested {}", namespace_->getName().toUri());
+                break;
+            case HandlerType::GObj:
+            {
+                GeneralizedObjectHandler hndlr(namespace_.get(),
+                                               [this,me]
+                                               (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace &objectNamespace)
+                                               {
+                                                   objectReadyPayload_.objectNamespace_ = &objectNamespace;
+                                                   objectReadyPayload_.object_ =  objectNamespace.getObject();
+                                                   objectReadyPayload_.contentMetaInfo_ = contentMetaInfo;
+                                               });
+                hndlr.setNComponentsAfterObjectNamespace(versioned ? 1 : 0);
+                hndlr.objectNeeded(mustBeFresh);
+                logger_->debug("Generalized Object requested {}", namespace_->getName().toUri());
+            }
+                break;
+            case HandlerType::GObjStream:
+                break;
+            default:
+                break;
+        }
+    }
+    
+    static vector<pair<string,string>> datInfoFromObjectPayload(ObjectReadyPayload &p)
+    {
+        vector<pair<string,string>> rows;
+        if (p.object_ && p.objectNamespace_)
+        {
+            vector<shared_ptr<Data>> allData;
+            p.objectNamespace_->getAllData(allData);
+            rows.push_back(pair<string,string>("Object Namespace", p.objectNamespace_->getName().toUri()));
+            rows.push_back(pair<string,string>("Total Packets", to_string(allData.size())));
+            if (p.contentMetaInfo_)
+            {
+                rows.push_back(pair<string,string>("Content-Type", p.contentMetaInfo_->getContentType()));
+                rows.push_back(pair<string,string>("Timestamp", to_string(p.contentMetaInfo_->getTimestamp())));
+                rows.push_back(pair<string,string>("Other", p.contentMetaInfo_->getOther().toRawStr()));
+            }
+            int idx = 0;
+            for (auto d: allData)
+                rows.push_back(pair<string,string>("Packet "+to_string(idx++), d->getName().toUri()));
+        }
+        return rows;
+    }
+};
+
 NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 : BaseDAT(info)
 , freshness_(16000)
-, handlerType_(HandlerType::GObj)
 , faceDatOp_(nullptr)
 , keyChainDatOp_(nullptr)
 , rawOutput_(true)
-, namespaceInfoRows_(make_shared<NamespaceInfoRows>())
 , payloadInput_("")
 , payloadOutput_("")
-, onStateChangedCallbackId_(0)
 , mustBeFresh_(true)
-, namespaceState_(make_shared<atomic<NamespaceState>>())
-, namespaceObject_(make_shared<shared_ptr<cnl_cpp::Object>>())
-, gobjContentMetaInfo_(make_shared<shared_ptr<ContentMetaInfoObject>>())
+, produceOnRequest_(false)
+, gobjVersioned_(false)
+, datInputData_(make_shared<DatInputData>())
+, pimpl_(make_shared<NamespaceDAT::Impl>(logger_))
 {
+    *datInputData_ = { pimpl_->handlerType_, "", "text/html",
+        make_shared<MetaInfo>(), shared_ptr<Blob>(), shared_ptr<Blob>()};
+  
     OPLOG_DEBUG("Created NamespaceDAT");
 }
 
@@ -189,19 +458,26 @@ NamespaceDAT::execute(DAT_Output* output,
 {
     BaseDAT::execute(output, inputs, reserved);
     
-    if (!namespace_)
+    if (!pimpl_->namespace_)
         initNamespace(output, inputs, reserved);
     
-    if (namespace_ && namespace_->getFace_())
+    if (pimpl_->namespace_ && pimpl_->namespace_->getFace_())
     {
         bool isFetching = !isProducer(inputs);
-        switch (namespaceState_->load()) {
+        switch (pimpl_->namespace_->getState()) {
             case NamespaceState_NAME_EXISTS:
             {
                 if (isFetching)
                     runFetch(output, inputs, reserved);
                 else
-                    runPublish(output, inputs, reserved);
+                {
+                    copyDatInputData(output, inputs, reserved);
+                    
+                    if (!produceOnRequest_ &&
+                        !(gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj))
+                        // active producer
+                        runPublish(output, inputs, reserved);
+                }
             }
                 break;
             case NamespaceState_OBJECT_READY:
@@ -221,34 +497,24 @@ NamespaceDAT::execute(DAT_Output* output,
 void
 NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved)
 {
-    if (namespaceState_->load() == NamespaceState_OBJECT_READY)
+    if (pimpl_->getIsObjectReady())
     {
-        switch (handlerType_)
+        if (!outputString_.size())
         {
-            case HandlerType::None: // fallthrough
-            case HandlerType::Segmented: // fallthrough
-            case HandlerType::GObj:
-                {
-                    assert(*namespaceObject_);
-                    shared_ptr<BlobObject> b = dynamic_pointer_cast<BlobObject>(*namespaceObject_);
-                    if (b)
-                    {
-                        clearError();
-                        if (rawOutput_)
-                            output->setText(b->toRawStr().c_str());
-                        else
-                            output->setText(BaseDAT::toBase64(b->getBlob()).c_str());
-                    }
-                    else
-                    {
-                        setError("Failed to process received object");
-                        OPLOG_ERROR("Failed to cast received Object to BlobObject");
-                    }
-                }
-                break;
-            default:
-                break;
-        } // switch
+            shared_ptr<BlobObject> b = dynamic_pointer_cast<BlobObject>(pimpl_->objectReadyPayload_.object_);
+            if (b)
+            {
+                clearError();
+                outputString_ = rawOutput_ ? b->toRawStr() : BaseDAT::toBase64(*b->getBlob());
+            }
+            else
+            {
+                setError("Failed to process received object");
+                OPLOG_ERROR("Failed to cast received Object to BlobObject");
+            }
+        }
+        
+        output->setText(outputString_.c_str());
         
         // for consumer -- check if need to save to a TOP or a file
         storeOutput(output, inputs, reserved);
@@ -262,11 +528,11 @@ NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *res
 {
     bool storePayload = !isProducer(inputs) && payloadOutput_.size() && !payloadStored_;
     
-    if (namespaceState_->load() == NamespaceState_OBJECT_READY &&
+    if (pimpl_->getIsObjectReady() &&
         storePayload)
     {
-        shared_ptr<BlobObject> blobObject = dynamic_pointer_cast<BlobObject>(*namespaceObject_);
-        if (!blobObject)
+        shared_ptr<BlobObject> b = dynamic_pointer_cast<BlobObject>(pimpl_->objectReadyPayload_.object_);
+        if (!b)
         {
             OPLOG_ERROR("Failed to cast received Object to BlobObject");
             return;
@@ -277,18 +543,17 @@ NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *res
             // save to TOP
             PayloadTOP *payloadTOP = (PayloadTOP*)retrieveOp(getCanonical(payloadOutput_));
             assert(payloadTOP);
-            if (*gobjContentMetaInfo_)
+            if (pimpl_->objectReadyPayload_.contentMetaInfo_)
             {
                 string jsonErr;
-                json11::Json json = json11::Json::parse((*gobjContentMetaInfo_)->getOther().toRawStr(), jsonErr);
+                json11::Json json = json11::Json::parse(pimpl_->objectReadyPayload_.contentMetaInfo_->getOther().toRawStr(), jsonErr);
                 if (jsonErr.size() == 0)
                 {
                     int w = json["width"].int_value();
                     int h = json["height"].int_value();
-//                    int sz = json["size"].int_value();
                     
                     clearError();
-                    payloadTOP->setBuffer(*blobObject->getBlob(), w, h);
+                    payloadTOP->setBuffer(*b->getBlob(), w, h);
                     payloadStored_ = true;
                 }
                 else
@@ -303,7 +568,7 @@ NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *res
             ofstream file(payloadOutput_, ios_base::out | ios_base::binary);
             if (file)
             {
-                file.write((const char*)blobObject->getBlob().buf(), blobObject->getBlob().size());
+                file.write((const char*)b->getBlob().buf(), b->getBlob().size());
                 if (!file)
                 {
                     setError("Unable to write to file %s", payloadOutput_.c_str());
@@ -324,22 +589,23 @@ NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *res
     }
 }
 
-shared_ptr<ndn::Blob>
-NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType,
-                         shared_ptr<Blob>& other) const
+void
+NamespaceDAT::copyDatInputData(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    contentType = "text/html";
-
-    // give priority to inputs
+    datInputData_->inputFile_ = "";
+    datInputData_->handlerType_ = pimpl_->handlerType_;
+    datInputData_->metaInfo_->setFreshnessPeriod(freshness_);
+    
     if (inputs->getNumInputs())
     {
         const OP_DATInput *datInput = inputs->getInputDAT(0);
         if (datInput->numCols == 0 || datInput->numRows == 0)
             // got nothing
-            return shared_ptr<Blob>();
-    
-        contentType = (datInput->isTable && datInput->numRows > 1 ? datInput->getCell(1, 0) : "text/html");
-        return make_shared<Blob>(Blob::fromRawStr(datInput->getCell(0, 0)));
+            return ;
+        
+        datInputData_->contentType_ = (datInput->isTable && datInput->numRows > 1 ? datInput->getCell(1, 0) : "text/html");
+        datInputData_->payload_ = make_shared<Blob>(Blob::fromRawStr(datInput->getCell(0, 0)));
+        datInputData_->other_.reset();
     }
     else
     {
@@ -351,46 +617,25 @@ NamespaceDAT::getPayload(const OP_Inputs *inputs, string& contentType,
             PayloadTOP *payloadTop = (PayloadTOP*)retrieveOp(getCanonical(payloadInput_));
             int size, w, h;
             shared_ptr<vector<uint8_t>> buffer = payloadTop->getBuffer(size, w, h);
-            contentType = "image/x-bgra";
+            datInputData_->contentType_ = "image/x-bgra";
             
             json11::Json json = json11::Json::object {
                 { "width", w },
                 { "height", h },
                 { "size", size }
             };
-            other = make_shared<Blob>(Blob::fromRawStr(json.dump()));
-            return make_shared<Blob>(buffer);
+            datInputData_->other_ = make_shared<Blob>(Blob::fromRawStr(json.dump()));
+            datInputData_->payload_ = make_shared<Blob>(buffer);
         }
-        else // treat payloadInput_ as a path to a file
-        {
-            ifstream file(payloadInput_, ios_base::binary | ios_base::in | ios_base::ate);
-            shared_ptr<Blob> b;
-            if (file.is_open())
-            {
-                streamsize sz = file.tellg();
-                shared_ptr<vector<uint8_t>> buf = make_shared<vector<uint8_t>>(sz);
-                file.seekg(0);
-                
-                OPLOG_TRACE("Reading file {} of size {}", payloadInput_, sz);
-                if (!file.read((char*)(buf->data()), sz))
-                {
-                    OPLOG_ERROR("Failed to read {} bytes from file {}", sz, payloadInput_);
-                }
-                else
-                {
-                    b = make_shared<Blob>(buf);
-                    // TODO: set content type according to the extension
-                    contentType = "text/html";
-                }
-            }
-            else
-                OPLOG_ERROR("Failed to open file {}", payloadInput_);
-            
-            return b;
-        }
+        else
+            datInputData_->inputFile_ = payloadInput_;
     }
+}
 
-    return shared_ptr<Blob>();
+bool
+NamespaceDAT::isInputFile(const OP_Inputs *inputs) const
+{
+    return !(inputs->getNumInputs() || retrieveOp(getCanonical(payloadInput_)));
 }
 
 void
@@ -435,73 +680,35 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         }
 
         clearError();
-        
-        gobjContentMetaInfo_->reset();
-        namespaceObject_->reset();
-        namespaceState_->store(NamespaceState_NAME_EXISTS);
-        namespace_ = make_shared<Namespace>(prefix_, keyChain);
-        
-        shared_ptr<atomic<NamespaceState>> namespaceState = namespaceState_;
-        shared_ptr<shared_ptr<cnl_cpp::Object>> receivedObject = namespaceObject_;
-        string outerNamespaceName = namespace_->getName().toUri();
-        onStateChangedCallbackId_ = namespace_->addOnStateChanged([namespaceState, receivedObject, outerNamespaceName]
-                                      (Namespace& n, Namespace& objectNamespace, NamespaceState state,
-                                       uint64_t callbackId)
-        {
-            if (outerNamespaceName == objectNamespace.getName().toUri())
-            {
-                if (state == NamespaceState_OBJECT_READY)
-                    *receivedObject = objectNamespace.getObject();
-                namespaceState->store(state);
-            }
-        });
+        payloadStored_ = false;
+        pimpl_->initNamespace(prefix_, keyChain);
         
         if (isProducer)
         {
-            MetaInfo metaInfo;
-            metaInfo.setFreshnessPeriod(freshness_);
-            namespace_->setNewDataMetaInfo(metaInfo);
-            OPLOG_DEBUG("Created producer namespace {}", namespace_->getName().toUri());
+            if (produceOnRequest_ ||
+                (gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj))
+            {
+                bool versioned = (gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj);
+                shared_ptr<DatInputData> copiedPayload = datInputData_;
+                pimpl_->produceOnRequest([copiedPayload]()
+                {
+                    return Impl::PayloadData::fromDatInputData(copiedPayload);
+                }, versioned);
+            }
+            
+            OPLOG_DEBUG("Created producer namespace {}", pimpl_->namespace_->getName().toUri());
         }
         else
-            OPLOG_DEBUG("Created consumer namespace {}", namespace_->getName().toUri());
+            OPLOG_DEBUG("Created consumer namespace {}", pimpl_->namespace_->getName().toUri());
 
-        namespaceInfoRows_->clear();
-        namespaceInfoRows_->push_back(pair<string,string>("Type", isProducer ? "PRODUCER" : "CONSUMER"));
-        prefixRegistered_ = make_shared<bool>(false);
-
-        shared_ptr<helpers::logger> logger = logger_;
-        shared_ptr<Namespace> nmspc = namespace_;
-        shared_ptr<bool> prefixRegistered = prefixRegistered_;
-        faceDatOp_->getFaceProcessor()->
-            dispatchSynchronized([isProducer,nmspc,logger,prefixRegistered](shared_ptr<Face> f){
-            logger->debug("Set face for namespace {}", nmspc->getName().toUri());
-            
-            if (isProducer)
-                nmspc->setFace(f.get(),
-                               [logger](const shared_ptr<const Name>& n){
-                                   logger->error("Failed to register prefix {}", n->toUri());
-                               },
-                               [logger,prefixRegistered](const shared_ptr<const Name>& n,
-                                                         uint64_t registeredPrefixId){
-                                   *prefixRegistered = true;
-                                   logger->debug("Registered prefix {}", n->toUri());
-                               });
-            else
-                nmspc->setFace(f.get());
-        });
+        pimpl_->setFace(faceDatOp_->getFaceProcessor(), isProducer);
     }
 }
 
 void
 NamespaceDAT::releaseNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
 {
-    if (namespace_.get())
-    {
-        namespace_->removeCallback(onStateChangedCallbackId_);
-        namespace_->setFace(nullptr);
-        namespace_.reset();
-    }
+    pimpl_->releaseNamespace();
 }
 
 void
@@ -589,107 +796,23 @@ NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, v
 void
 NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    string contentType;
-    shared_ptr<Blob> other;
-    shared_ptr<Blob> payload = getPayload(inputs, contentType, other);
-    
-    if (!payload || payload->size() == 0)
+    if ((!datInputData_->payload_ || datInputData_->payload_->size() == 0) && datInputData_->inputFile_.size() == 0)
     {
         setWarning("Can't read input. Not publishing");
         return;
     }
     
-    try {
-        
-        switch (handlerType_)
-        {
-            case HandlerType::None:
-            {
-                namespace_->serializeObject(make_shared<BlobObject>(*payload));
-            }
-                break;
-            case HandlerType::Segmented:
-            {
-                SegmentStreamHandler().setObject(*namespace_, *payload);
-            }
-                break;
-            case HandlerType::GObj:
-            {
-                if (other)
-                    GeneralizedObjectHandler().setObject(*namespace_, *payload, contentType, *other);
-                else
-                    GeneralizedObjectHandler().setObject(*namespace_, *payload, contentType);
-            }
-                break;
-            case HandlerType::GObjStream:
-                // tbd
-                break;
-            default:
-                break;
-        }
-        
-        clearWarning();
-        clearError();
-        
-        OPLOG_DEBUG("Published data under {}", namespace_->getName().toUri());
-
-        vector<shared_ptr<Data>> allData;
-        namespace_->getAllData(allData);
-        int idx = 0;
-        for (auto d:allData)
-        {
-            namespaceInfoRows_->push_back(pair<string,string>("Packet "+to_string(idx++), d->getName().toUri()));
-            OPLOG_TRACE("{}", d->getName().toUri());
-        }
-
-    }
-    catch (std::runtime_error &e)
-    {
-        setError(e.what());
-        OPLOG_ERROR("Error while publishing: {}", e.what());
-    }
+    clearWarning();
+    clearError();
+    pimpl_->produceNow(*pimpl_->namespace_, Impl::PayloadData::fromDatInputData(datInputData_),
+                       gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj);
 }
 
 void
 NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    switch (handlerType_)
-    {
-        case HandlerType::None:
-            namespace_->objectNeeded(mustBeFresh_);
-            OPLOG_DEBUG("Data packet requested: {}", namespace_->getName().toUri());
-            break;
-        case HandlerType::Segmented:
-            SegmentedObjectHandler(namespace_.get()).objectNeeded(mustBeFresh_);
-            OPLOG_DEBUG("Segmented data requested {}", namespace_->getName().toUri());
-            break;
-        case HandlerType::GObj:
-        {
-            shared_ptr<shared_ptr<ContentMetaInfoObject>> gobjContentMetaInfo = gobjContentMetaInfo_;
-            shared_ptr<NamespaceInfoRows> metaInfoRows = namespaceInfoRows_;
-            bool rawOutput = rawOutput_;
-            GeneralizedObjectHandler(namespace_.get(),
-                                     [metaInfoRows, rawOutput, gobjContentMetaInfo]
-                                     (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace &objectNamespace)
-            {
-                metaInfoRows->push_back(pair<string, string>("ContentType", contentMetaInfo->getContentType()));
-                metaInfoRows->push_back(pair<string, string>("Timestamp", to_string(contentMetaInfo->getTimestamp())));
-                
-                string other = (rawOutput ? contentMetaInfo->getOther().toRawStr() : BaseDAT::toBase64(contentMetaInfo->getOther()));
-                metaInfoRows->push_back(pair<string, string>("Other", other));
-                *gobjContentMetaInfo = contentMetaInfo;
-            }).objectNeeded(mustBeFresh_);
-            OPLOG_DEBUG("Generalized Object requested {}", namespace_->getName().toUri());
-        }
-            break;
-        case HandlerType::GObjStream:
-            
-            break;
-        default:
-            setError("Unsupported handler type");
-            break;
-    }
-
+    pimpl_->fetch(mustBeFresh_, gobjVersioned_);
+    outputString_ = "";
     payloadStored_ = false;
 }
 
@@ -698,10 +821,10 @@ bool
 NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
     BaseDAT::getInfoDATSize(infoSize, reserved1);
-    int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
-    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
+    size_t packetsRow = pimpl_->getIsObjectReady() ? Impl::datInfoFromObjectPayload(pimpl_->objectReadyPayload_).size() : 0;
+    int nDefaultRows = NDEFAULT_ROWS;
     
-    infoSize->rows += nDefaultRows + namespaceInfoRows_->size();
+    infoSize->rows += nDefaultRows + (int)packetsRow;
     infoSize->cols = 2;
     infoSize->byColumn = false;
     
@@ -712,37 +835,28 @@ void
 NamespaceDAT::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
                                 void* reserved1)
 {
-    int packetsRow = (namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY ? 1 : 0);
-    int nDefaultRows = NDEFAULT_ROWS + packetsRow;
-    int nRows = nDefaultRows + (int)namespaceInfoRows_->size();
+    vector<pair<string,string>> packetsRows = Impl::datInfoFromObjectPayload(pimpl_->objectReadyPayload_);
+    int nDefaultRows = NDEFAULT_ROWS;
+    int nRows = nDefaultRows + (int)packetsRows.size();;
     if (index < nRows)
     {
         switch (index) {
             case 0:
                 entries->values[0]->setString("Full Name");
-                entries->values[1]->setString( namespace_ ? namespace_->getName().toUri().c_str() : "" );
+                entries->values[1]->setString( pimpl_->namespace_ ? pimpl_->namespace_->getName().toUri().c_str() : "" );
                 break;
             case 1:
                 entries->values[0]->setString("State");
-                entries->values[1]->setString( namespace_ ? NamespaceStateMap.at(namespace_->getState()).c_str() : "n/a" );
+                entries->values[1]->setString( pimpl_->namespace_ ? NamespaceStateMap.at(pimpl_->namespace_->getState()).c_str() : "n/a" );
                 break;
             case 2:
                 entries->values[0]->setString("Prefix Registered");
-                entries->values[1]->setString(prefixRegistered_ && *prefixRegistered_ ? "true" : "false");
+                entries->values[1]->setString(pimpl_->prefixRegistered_ ? "true" : "false");
                 break;
-            case 3:
-                if (packetsRow)
-                {
-                    vector<shared_ptr<Data>> dataList;
-                    namespace_->getAllData(dataList);
-                    entries->values[0]->setString("Total Packets");
-                    entries->values[1]->setString(to_string(dataList.size()).c_str());
-                    break;
-                }// else -- fallthrough
             default:
                 int i = index - nDefaultRows;
-                entries->values[0]->setString((*namespaceInfoRows_)[i].first.c_str());
-                entries->values[1]->setString((*namespaceInfoRows_)[i].second.c_str());
+                entries->values[0]->setString(packetsRows[i].first.c_str());
+                entries->values[1]->setString(packetsRows[i].second.c_str());
                 break;
         }
     }
@@ -755,7 +869,7 @@ NamespaceDAT::pulsePressed(const char* name, void* reserved1)
 {
     if (string(name) == PAR_OBJECT_NEEDED)
     {
-        if (namespace_ && namespace_->getFace_())
+        if (pimpl_->namespace_ && pimpl_->namespace_->getFace_())
             runFetch(nullptr, nullptr, nullptr);
     }
     else
@@ -819,13 +933,21 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
     (manager, PAR_HANDLER_TYPE, PAR_HANDLER_TYPE_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_StringParameter &p){
          for (auto it:HandlerTypeMap)
-             if (it.second == handlerType_)
+             if (it.second == pimpl_->handlerType_)
              {
                  p.defaultValue = it.first.c_str();
                  break;
              }
          return manager->appendMenu(p, PAR_HANDLER_MENU_SIZE, names, labels);
      });
+    
+    appendPar<OP_NumericParameter>
+    (manager, PAR_GOBJ_VERSIONED, PAR_GOBJ_VERSIONED_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.defaultValues[0] = gobjVersioned_;
+         return manager->appendToggle(p);
+     });
+    
     appendPar<OP_StringParameter>
     (manager, PAR_INPUT, PAR_INPUT_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_StringParameter &p){
@@ -839,27 +961,12 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
          return manager->appendString(p);
      });
     
-//    appendPar<OP_NumericParameter>
-//    (manager, PAR_OBJECT_NEEDED, PAR_OBJECT_NEEDED_LABEL, PAR_PAGE_DEFAULT,
-//     [&](OP_NumericParameter &p){
-//         return manager->appendPulse(p);
-//     });
-    
     appendPar<OP_NumericParameter>
     (manager, PAR_RAWOUTPUT, PAR_RAWOUTPUT_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_NumericParameter &p){
          p.defaultValues[0] = rawOutput_;
          return manager->appendToggle(p);
      });
-}
-
-bool
-NamespaceDAT::isProducer(const OP_Inputs* inputs)
-{
-    // namespace publishes object if
-    // - keyChain is set AND
-    // - there is an input OR payloadInput_ is not empty
-    return keyChainDatOp_ && (inputs->getNumInputs() || payloadInput_.size());
 }
 
 void
@@ -884,7 +991,10 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     (PAR_FRESHNESS, freshness_, inputs->getParInt(PAR_FRESHNESS));
     
     updateIfNew<HandlerType>
-    (PAR_HANDLER_TYPE, handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
+    (PAR_HANDLER_TYPE, pimpl_->handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
+    
+    updateIfNew<bool>
+    (PAR_GOBJ_VERSIONED, gobjVersioned_, (bool)inputs->getParInt(PAR_GOBJ_VERSIONED));
     
     updateIfNew<string>
     (PAR_INPUT, payloadInput_, inputs->getParString(PAR_INPUT));
@@ -894,6 +1004,13 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     
     updateIfNew<bool>
     (PAR_RAWOUTPUT, rawOutput_, (bool)inputs->getParInt(PAR_RAWOUTPUT));
+    
+    // update parameters availability
+    inputs->enablePar(PAR_GOBJ_VERSIONED, pimpl_->handlerType_ == HandlerType::GObj);
+    bool isProducing = isProducer(inputs);
+    inputs->enablePar(PAR_FRESHNESS, isProducing);
+    inputs->enablePar(PAR_OUTPUT, !isProducing);
+//    inputs->enablePar(PAR_INPUT, isProducing);
 }
 
 void
@@ -912,13 +1029,52 @@ NamespaceDAT::paramsUpdated()
     });
     
     runIfUpdated(PAR_RAWOUTPUT, [this](){
-        if (namespace_ && namespaceState_->load() == NamespaceState_OBJECT_READY)
+        if (pimpl_->getIsObjectReady())
             dispatchOnExecute(bind(&NamespaceDAT::setOutput, this, _1, _2, _3));
     });
     
     runIfUpdated(PAR_OUTPUT, [this](){
-        if (namespace_ && namespaceState_->load() == NamespaceState_OBJECT_READY)
+        if (pimpl_->getIsObjectReady())
             dispatchOnExecute(bind(&NamespaceDAT::storeOutput, this, _1, _2, _3));
     });
-    
 }
+
+bool
+NamespaceDAT::isProducer(const OP_Inputs* inputs)
+{
+    // namespace publishes object if
+    // - keyChain is set AND
+    // - there is an input OR payloadInput_ is not empty
+    return keyChainDatOp_ && (inputs->getNumInputs() || payloadInput_.size());
+}
+
+shared_ptr<ndn::Blob>
+NamespaceDAT::readFile(const std::string& fname, string& contentType, shared_ptr<Blob>& other)
+{
+    ifstream file(fname, ios_base::binary | ios_base::in | ios_base::ate);
+    shared_ptr<Blob> b;
+    if (file.is_open())
+    {
+        streamsize sz = file.tellg();
+        shared_ptr<vector<uint8_t>> buf = make_shared<vector<uint8_t>>(sz);
+        file.seekg(0);
+        
+        getModuleLogger()->trace("Reading file {} of size {}", fname, sz);
+        if (!file.read((char*)(buf->data()), sz))
+        {
+            getModuleLogger()->error("Failed to read {} bytes from file {}", sz, fname);
+        }
+        else
+        {
+            b = make_shared<Blob>(buf);
+            // TODO: set content type according to the extension
+            contentType = "text/html";
+        }
+    }
+    else
+        getModuleLogger()->error("Failed to open file {}", fname);
+    
+    return b;
+}
+
+

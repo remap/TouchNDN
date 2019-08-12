@@ -25,7 +25,8 @@
 #include "baseDAT.hpp"
 
 namespace ndn {
-    class Object;
+//    class Object;
+    class MetaInfo;
 }
 
 namespace cnl_cpp {
@@ -68,21 +69,23 @@ public:
 	virtual void		pulsePressed(const char* name, void* reserved1) override;
 
 private:
-    HandlerType handlerType_;
     uint32_t freshness_;
     std::string prefix_, faceDat_, keyChainDat_, payloadInput_, payloadOutput_;
     FaceDAT *faceDatOp_;
     KeyChainDAT *keyChainDatOp_;
-    std::shared_ptr<cnl_cpp::Namespace> namespace_;
-    bool rawOutput_, payloadStored_, mustBeFresh_;
-    typedef std::vector<std::pair<std::string, std::string>> NamespaceInfoRows;
-    std::shared_ptr<NamespaceInfoRows> namespaceInfoRows_;
-    std::shared_ptr<bool> prefixRegistered_;
+    bool rawOutput_, payloadStored_, mustBeFresh_, produceOnRequest_, gobjVersioned_;
+    std::string outputString_;
     
-    uint64_t onStateChangedCallbackId_;
-    std::shared_ptr<std::atomic<cnl_cpp::NamespaceState>> namespaceState_;
-    const std::shared_ptr<std::shared_ptr<cnl_cpp::ContentMetaInfoObject>> gobjContentMetaInfo_;
-    const std::shared_ptr<std::shared_ptr<cnl_cpp::Object>> namespaceObject_;
+    typedef struct _DatInputData {
+        HandlerType handlerType_;
+        std::string inputFile_, contentType_;
+        std::shared_ptr<ndn::MetaInfo> metaInfo_;
+        std::shared_ptr<ndn::Blob> payload_, other_;
+    } DatInputData;
+    std::shared_ptr<DatInputData> datInputData_;
+    
+    class Impl;
+    std::shared_ptr<Impl> pimpl_;
     
     virtual void initPulsed() override;
     virtual void onOpUpdate(OP_Common*, const std::string&) override;
@@ -102,8 +105,13 @@ private:
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
     void storeOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
-    std::shared_ptr<ndn::Blob> getPayload(const OP_Inputs*, std::string& contentType,
-                                          std::shared_ptr<ndn::Blob>& other) const;
+    
+    bool isInputFile(const OP_Inputs* inputs) const;
+    // copies payload into Blob(s) so that it can be accessed from another thread
+    void copyDatInputData(DAT_Output *output, const OP_Inputs* inputs, void* reserved);
+    
+    static std::shared_ptr<ndn::Blob> readFile(const std::string& fname, std::string& contentType,
+                                               std::shared_ptr<ndn::Blob>& other);
 };
 
 }
