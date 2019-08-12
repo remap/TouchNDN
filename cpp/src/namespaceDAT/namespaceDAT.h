@@ -57,7 +57,7 @@ public:
 	NamespaceDAT(const OP_NodeInfo* info);
 	virtual ~NamespaceDAT();
 
-    virtual void getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1);
+    virtual void getGeneralInfo(DAT_GeneralInfo *ginfo, const OP_Inputs *inputs, void *reserved1) override;
 	virtual void execute(DAT_Output*, const OP_Inputs*, void* reserved) override;
     virtual bool        getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
     virtual void        getInfoDATEntries(int32_t index,

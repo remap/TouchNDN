@@ -153,25 +153,12 @@ extern "C"
 
 class NamespaceDAT::Impl : public enable_shared_from_this<NamespaceDAT::Impl> {
 public:
-    Impl(shared_ptr<helpers::logger> &l) :
-      handlerType_(HandlerType::GObj)
-    , prefixRegistered_(false)
-    , logger_(l) {}
-    ~Impl(){}
-    
-    shared_ptr<helpers::logger> logger_;
-    HandlerType handlerType_;
-    shared_ptr<Namespace> namespace_;
-    bool produceOnRequest_, prefixRegistered_;
-    
     typedef struct _ObjectReadyPayload {
         // be careful with this raw pointer...
         cnl_cpp::Namespace* objectNamespace_;
         std::shared_ptr<cnl_cpp::Object> object_;
         std::shared_ptr<cnl_cpp::ContentMetaInfoObject> contentMetaInfo_;
     } ObjectReadyPayload;
-    ObjectReadyPayload objectReadyPayload_;
-    
     class PayloadData {
     public:
         static shared_ptr<PayloadData> fromDatInputData(shared_ptr<DatInputData> datInputData)
@@ -216,8 +203,18 @@ public:
         shared_ptr<Blob> other_;
     };
     
-    shared_ptr<PayloadData> producedPayloadData_;
+    shared_ptr<helpers::logger> logger_;
+    HandlerType handlerType_;
+    shared_ptr<Namespace> namespace_;
     vector<uint64_t> registeredCallbacks_;
+    bool prefixRegistered_;
+    ObjectReadyPayload objectReadyPayload_;
+    
+    Impl(shared_ptr<helpers::logger> &l) :
+    handlerType_(HandlerType::GObj)
+    , prefixRegistered_(false)
+    , logger_(l) {}
+    ~Impl(){}
     
     bool getIsObjectReady() const
     {
@@ -1029,6 +1026,7 @@ NamespaceDAT::paramsUpdated()
     });
     
     runIfUpdated(PAR_RAWOUTPUT, [this](){
+        outputString_ = "";
         if (pimpl_->getIsObjectReady())
             dispatchOnExecute(bind(&NamespaceDAT::setOutput, this, _1, _2, _3));
     });
