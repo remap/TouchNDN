@@ -34,6 +34,7 @@ namespace cnl_cpp {
     class Namespace;
     class BlobObject;
     class ContentMetaInfoObject;
+    class GeneralizedObjectStreamHandler;
 }
 
 namespace touch_ndn

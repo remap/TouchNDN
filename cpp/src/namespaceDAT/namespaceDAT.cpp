@@ -59,6 +59,8 @@
 #define PAR_RAWOUTPUT_LABEL "Raw Output"
 #define PAR_GOBJ_VERSIONED "Gobjversioned"
 #define PAR_GOBJ_VERSIONED_LABEL "Versioned"
+#define PAR_GOBJ_STREAM_PULSE "Gobjstreampulse"
+#define PAR_GOBJ_STREAM_PULSE_LABEL "Stream Pulse"
 
 #define PAR_HANDLER_NONE "Handlernone"
 #define PAR_HANDLER_NONE_LABEL "None"
@@ -220,10 +222,13 @@ public:
     bool prefixRegistered_;
     ObjectReadyPayload objectReadyPayload_;
     
-    Impl(shared_ptr<helpers::logger> &l) :
-    handlerType_(HandlerType::GObj)
+    shared_ptr<GeneralizedObjectStreamHandler> streamHandler_;
+    
+    Impl(shared_ptr<helpers::logger> &l, HandlerType ht) :
+    handlerType_(ht)
     , prefixRegistered_(false)
     , logger_(l) {}
+    
     ~Impl(){
         cout << "NamespaceDAT::Impl::~Impl() " << (namespace_ ? namespace_->getName().toUri() : "no namespace") << endl;
     }
@@ -262,7 +267,6 @@ public:
         objectReadyPayload_.reset();
         
         namespace_ = make_shared<Namespace>(prefix, keyChain);
-        shared_ptr<Impl> me = shared_from_this();
     }
     
     void releaseNamespace()
@@ -283,6 +287,8 @@ public:
 //            for (auto cbId:registeredCallbacks_)
 //                namespace_->removeCallback(cbId);
 //            namespace_->setFace(nullptr);
+            if (handlerType_ == HandlerType::GObjStream)
+                streamHandler_.reset();
             namespace_ = shared_ptr<Namespace>();
         }
     }
@@ -383,7 +389,15 @@ public:
                 }
                     break;
                 case HandlerType::GObjStream:
-                    // tbd
+                {
+                    streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get());
+                    shared_ptr<GObjPayloadData> pd = dynamic_pointer_cast<GObjPayloadData>(payloadData);
+                    assert(pd);
+                    if (pd->other_)
+                        streamHandler_->addObject(*pd->payload_, pd->contentType_, *pd->other_);
+                    else
+                        streamHandler_->addObject(*pd->payload_, pd->contentType_);
+                }
                     break;
                 default:
                     break;
@@ -427,24 +441,43 @@ public:
                                        }).objectNeeded(mustBeFresh);
                 logger_->debug("Segmented data requested {}", namespace_->getName().toUri());
                 break;
-            case HandlerType::GObj:
-            {
-                GeneralizedObjectHandler hndlr(namespace_.get(),
-                                               [this,me]
-                                               (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo, Namespace &objectNamespace)
-                                               {
-                                                   me->lockObjectReady([&](ObjectReadyPayload& p){
-                                                       p.objectNamespace_ = &objectNamespace;
-                                                       p.object_ = objectNamespace.getObject();
-                                                       p.contentMetaInfo_ = contentMetaInfo;
-                                                   });
-                                               });
-                hndlr.setNComponentsAfterObjectNamespace(versioned ? 1 : 0);
-                hndlr.objectNeeded(mustBeFresh);
-                logger_->debug("Generalized Object requested {}", namespace_->getName().toUri());
-            }
-                break;
+            case HandlerType::GObj: // fallthrough
             case HandlerType::GObjStream:
+            {
+                GeneralizedObjectHandler::OnGeneralizedObject onObject =
+                [this,me] (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo,
+                           Namespace &objectNamespace)
+                {
+                    me->lockObjectReady([&](ObjectReadyPayload& p){
+                        p.objectNamespace_ = &objectNamespace;
+                        p.object_ = objectNamespace.getObject();
+                        p.contentMetaInfo_ = contentMetaInfo;
+                    });
+                };
+                
+                if (handlerType_ == HandlerType::GObj)
+                {
+                    GeneralizedObjectHandler hndlr(namespace_.get(), onObject);
+                    hndlr.setNComponentsAfterObjectNamespace(versioned ? 1 : 0);
+                    hndlr.objectNeeded(mustBeFresh);
+                    logger_->debug("Generalized Object requested {}", namespace_->getName().toUri());
+                }
+                else
+                {
+                    int pipelineSize = 8;
+                    GeneralizedObjectStreamHandler::OnSequencedGeneralizedObject onSeqObject =
+                    [this,me,onObject] (int sequenceNumber,
+                                        const shared_ptr<ContentMetaInfoObject>& contentMetaInfo,
+                                        Namespace& objectNamespace)
+                    {
+                        
+                        onObject(contentMetaInfo, objectNamespace);
+                    };
+                    streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get(),
+                                                                                 pipelineSize, onSeqObject);
+                    streamHandler_->objectNeeded();
+                }
+            }
                 break;
             default:
                 break;
@@ -486,7 +519,7 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , produceOnRequest_(false)
 , gobjVersioned_(false)
 , datInputData_(make_shared<DatInputData>())
-, pimpl_(make_shared<Impl>(logger_))
+, pimpl_(make_shared<Impl>(logger_, HandlerType::GObj))
 {
     datInputData_->handlerType_ = pimpl_->handlerType_;
     datInputData_->inputFile_ = "";
@@ -761,8 +794,7 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         clearError();
         payloadStored_ = false;
         HandlerType ht = pimpl_->handlerType_;
-        pimpl_ = make_shared<Impl>(logger_);
-        pimpl_->handlerType_ = ht;
+        pimpl_ = make_shared<Impl>(logger_, ht);
         pimpl_->initNamespace(prefix_, keyChain, faceDatOp_->getFaceProcessor());
         
         if (isProducer)
@@ -792,6 +824,45 @@ void
 NamespaceDAT::releaseNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved)
 {
     pimpl_->releaseNamespace();
+}
+
+void
+NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
+{
+    unique_lock<recursive_mutex> lock(datInputData_->mtx_, try_to_lock);
+    if (lock.owns_lock())
+    {
+        if ((!datInputData_->payload_ || datInputData_->payload_->size() == 0) && datInputData_->inputFile_.size() == 0)
+        {
+            setWarning("Can't read input. Not publishing");
+            return;
+        }
+        
+        clearWarning();
+        clearError();
+        
+        shared_ptr<Impl> pimpl = pimpl_;
+        shared_ptr<Namespace> n = pimpl_->namespace_;
+        shared_ptr<Impl::PayloadData> pd = Impl::PayloadData::fromDatInputData(datInputData_);
+        bool versioned = gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj;
+        // we need to synchronize with the Face thread, in case Face object will be accessed on
+        // publishing (i.e. answering pending interests)
+        faceDatOp_->getFaceProcessor()->dispatchSynchronized([n,pimpl,pd,versioned](shared_ptr<Face> f){
+            pimpl->produceNow(*n, pd, versioned);
+        });
+    }
+    else
+    {
+        cout << executeCount_ << " runPublish(): DATA IS LOCKED" << endl;
+    }
+}
+
+void
+NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
+{
+    pimpl_->fetch(mustBeFresh_, gobjVersioned_);
+    outputString_ = "";
+    payloadStored_ = false;
 }
 
 void
@@ -876,44 +947,6 @@ NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, v
     }
 }
 
-void
-NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
-{
-    unique_lock<recursive_mutex> lock(datInputData_->mtx_, try_to_lock);
-    if (lock.owns_lock())
-    {
-        if ((!datInputData_->payload_ || datInputData_->payload_->size() == 0) && datInputData_->inputFile_.size() == 0)
-        {
-            setWarning("Can't read input. Not publishing");
-            return;
-        }
-        
-        clearWarning();
-        clearError();
-        
-        shared_ptr<Impl> pimpl = pimpl_;
-        shared_ptr<Impl::PayloadData> pd = Impl::PayloadData::fromDatInputData(datInputData_);
-        bool versioned = gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj;
-        // we need to synchronize with the Face thread, in case Face object will be accessed on
-        // publishing (i.e. answering pending interests)
-        faceDatOp_->getFaceProcessor()->dispatchSynchronized([pimpl, pd, versioned](shared_ptr<Face> f){
-            pimpl->produceNow(*pimpl->namespace_, pd, versioned);
-        });
-    }
-    else
-    {
-        cout << executeCount_ << " runPublish(): DATA IS LOCKED" << endl;
-    }
-}
-
-void
-NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
-{
-    pimpl_->fetch(mustBeFresh_, gobjVersioned_);
-    outputString_ = "";
-    payloadStored_ = false;
-}
-
 #define NDEFAULT_ROWS 3
 bool
 NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
@@ -974,6 +1007,10 @@ NamespaceDAT::pulsePressed(const char* name, void* reserved1)
     {
         if (pimpl_->namespace_ && pimpl_->namespace_->getFace_())
             runFetch(nullptr, nullptr, nullptr);
+    }
+    else if (string(name) == PAR_GOBJ_STREAM_PULSE)
+    {
+        dispatchOnExecute(bind(&NamespaceDAT::runPublish, this, _1, _2, _3));
     }
     else
         BaseDAT::pulsePressed(name, reserved1);
@@ -1051,6 +1088,12 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
          return manager->appendToggle(p);
      });
     
+    appendPar<OP_NumericParameter>
+    (manager, PAR_GOBJ_STREAM_PULSE, PAR_GOBJ_STREAM_PULSE_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         return manager->appendPulse(p);
+     });
+    
     appendPar<OP_StringParameter>
     (manager, PAR_INPUT, PAR_INPUT_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_StringParameter &p){
@@ -1111,6 +1154,7 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     // update parameters availability
     inputs->enablePar(PAR_GOBJ_VERSIONED, pimpl_->handlerType_ == HandlerType::GObj);
     bool isProducing = isProducer(inputs);
+    inputs->enablePar(PAR_GOBJ_STREAM_PULSE, pimpl_->handlerType_ == HandlerType::GObjStream && isProducing);
     inputs->enablePar(PAR_FRESHNESS, isProducing);
     inputs->enablePar(PAR_OUTPUT, !isProducing);
 //    inputs->enablePar(PAR_INPUT, isProducing);
@@ -1149,7 +1193,7 @@ NamespaceDAT::isProducer(const OP_Inputs* inputs)
     // namespace publishes object if
     // - keyChain is set AND
     // - there is an input OR payloadInput_ is not empty
-    return keyChainDatOp_ && (inputs->getNumInputs() || payloadInput_.size());
+    return keyChainDatOp_ && inputs && (inputs->getNumInputs() || payloadInput_.size());
 }
 
 shared_ptr<ndn::Blob>
