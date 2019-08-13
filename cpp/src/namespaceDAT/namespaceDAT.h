@@ -20,6 +20,7 @@
 
 #include <string>
 #include <atomic>
+#include <mutex>
 
 #include <cnl-cpp/namespace.hpp>
 #include "baseDAT.hpp"
@@ -75,8 +76,10 @@ private:
     KeyChainDAT *keyChainDatOp_;
     bool rawOutput_, payloadStored_, mustBeFresh_, produceOnRequest_, gobjVersioned_;
     std::string outputString_;
+    std::vector<std::pair<std::string, std::string>> payloadInfoRows_;
     
     typedef struct _DatInputData {
+        std::recursive_mutex mtx_;
         HandlerType handlerType_;
         std::string inputFile_, contentType_;
         std::shared_ptr<ndn::MetaInfo> metaInfo_;
