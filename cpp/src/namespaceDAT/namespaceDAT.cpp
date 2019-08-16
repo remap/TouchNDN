@@ -162,11 +162,16 @@ public:
         shared_ptr<Object> object_;
         shared_ptr<ContentMetaInfoObject> contentMetaInfo_;
         
+        // only for GObjStream
+        int64_t seqNo_, fetchedNum_;
+        
         void reset(){
             lock_guard<recursive_mutex> scopedLock(mtx_);
             objectNamespace_ = nullptr;
             object_.reset();
             contentMetaInfo_.reset();
+            seqNo_ = -1;
+            fetchedNum_ = 0;
         }
     } ObjectReadyPayload;
     
@@ -230,12 +235,16 @@ public:
     , logger_(l) {}
     
     ~Impl(){
-        cout << "NamespaceDAT::Impl::~Impl() " << (namespace_ ? namespace_->getName().toUri() : "no namespace") << endl;
     }
     
     bool getIsObjectReady() const
     {
-        return namespace_ && namespace_->getState() == NamespaceState_OBJECT_READY;
+        return namespace_ &&
+            (//namespace_->getState() == NamespaceState_OBJECT_READY || // <-- this condition not sufficient
+             (objectReadyPayload_.objectNamespace_ &&
+                objectReadyPayload_.object_ &&
+                objectReadyPayload_.objectNamespace_->getState() == NamespaceState_OBJECT_READY) ||
+             (namespace_->getState() == NamespaceState_PRODUCING_OBJECT && handlerType_ == HandlerType::GObjStream));
     }
     
     bool tryLockObjectReady(function<void(const ObjectReadyPayload&)> cb)
@@ -279,16 +288,18 @@ public:
             vector<uint64_t> registeredCbs = registeredCallbacks_;
             shared_ptr<Namespace> n = namespace_;
             faceProcessor_->dispatchSynchronized([n, registeredCbs](shared_ptr<Face> f){
+                cout << this_thread::get_id() << " SHUTTING DOWN NAMESPACE " << n << " " << n->getName() << endl;
+                cout << " REMOVE CBs: " << registeredCbs.size() << endl;
+                
                 for (auto cbId:registeredCbs)
                     n->removeCallback(cbId);
+                n->shutdown();
                 n->setFace(nullptr);
-                //            namespace_.reset();
+                
+                cout << this_thread::get_id() << " FACE SHUT DOWN " << n << endl;
             });
-//            for (auto cbId:registeredCallbacks_)
-//                namespace_->removeCallback(cbId);
-//            namespace_->setFace(nullptr);
-            if (handlerType_ == HandlerType::GObjStream)
-                streamHandler_.reset();
+            
+            cout << this_thread::get_id() << " FACE RELEASED " << endl;
             namespace_ = shared_ptr<Namespace>();
         }
     }
@@ -313,19 +324,14 @@ public:
             else
                 namespace_->setFace(f.get());
             
-//            uint64_t cbId =
-            // keep reference to the namespace until we reach any of the end states
 //            shared_ptr<Namespace> nm = namespace_;
+//            uint64_t cbId =
 //            namespace_->addOnStateChanged([nm](Namespace& n, Namespace& on, NamespaceState state, uint64_t cbId)
 //                                          {
-//                                              if (&n == nm.get() &&
-//                                                  (state == NamespaceState_OBJECT_READY ||
-//                                                   state == NamespaceState_INTEREST_TIMEOUT ||
-//                                                   state == NamespaceState_INTEREST_NETWORK_NACK))
-//                                              {
-//                                                  nm->removeCallback(cbId);
-//                                              }
-//                                              cout << n.getName() << " " << on.getName() << NamespaceStateMap.at(state) << endl;
+//                                              cout << this_thread::get_id()
+//                                                << " " << n.getName()
+//                                                << " " << on.getName()
+//                                                << " " << NamespaceStateMap.at(state) << endl;
 //                                          });
 //            registeredCallbacks_.push_back(cbId);
         });
@@ -339,11 +345,8 @@ public:
         namespace_->addOnObjectNeeded([this,me,versioned,getPayloadData]
                                       (Namespace& n, Namespace& neededNamespace, uint64_t)
         {
-            cout << "onObjectNeeded() " << n.getName() << " " << neededNamespace.getName() << endl;
             if (namespace_.get() == &neededNamespace)
                 return produceNow(*namespace_, getPayloadData(), versioned);
-            
-            cout << "onObjectNeeded() NOT PRODUCING -- " << neededNamespace.getName() << endl;
             return false;
         });
         registeredCallbacks_.push_back(cbId);
@@ -353,9 +356,7 @@ public:
     {
         lock_guard<recursive_mutex> scopedLock(objectReadyPayload_.mtx_);
         
-        objectReadyPayload_.contentMetaInfo_.reset();
-        objectReadyPayload_.object_.reset();
-        objectReadyPayload_.objectNamespace_ = nullptr;
+        objectReadyPayload_.reset();
         
         Namespace &objectNamespace = versioned ?
             n[Name::Component::fromVersion((uint64_t)ndn_getNowMilliseconds())] : n;
@@ -390,7 +391,8 @@ public:
                     break;
                 case HandlerType::GObjStream:
                 {
-                    streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get());
+                    if (!streamHandler_)
+                        streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get());
                     shared_ptr<GObjPayloadData> pd = dynamic_pointer_cast<GObjPayloadData>(payloadData);
                     assert(pd);
                     if (pd->other_)
@@ -448,6 +450,7 @@ public:
                 [this,me] (const shared_ptr<ContentMetaInfoObject> &contentMetaInfo,
                            Namespace &objectNamespace)
                 {
+//                    namespace_->experimentalClear();
                     me->lockObjectReady([&](ObjectReadyPayload& p){
                         p.objectNamespace_ = &objectNamespace;
                         p.object_ = objectNamespace.getObject();
@@ -470,11 +473,15 @@ public:
                                         const shared_ptr<ContentMetaInfoObject>& contentMetaInfo,
                                         Namespace& objectNamespace)
                     {
-                        
+                        me->lockObjectReady([&](ObjectReadyPayload& p){
+                            p.seqNo_ = sequenceNumber;
+                            p.fetchedNum_++;
+                        });
                         onObject(contentMetaInfo, objectNamespace);
                     };
-                    streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get(),
-                                                                                 pipelineSize, onSeqObject);
+                    if (!streamHandler_)
+                        streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get(),
+                                                                                     pipelineSize, onSeqObject);
                     streamHandler_->objectNeeded();
                 }
             }
@@ -492,13 +499,19 @@ public:
             vector<shared_ptr<Data>> allData;
             p.objectNamespace_->getAllData(allData);
             rows.push_back(pair<string,string>("Object Namespace", p.objectNamespace_->getName().toUri()));
-            rows.push_back(pair<string,string>("Total Packets", to_string(allData.size())));
             if (p.contentMetaInfo_)
             {
                 rows.push_back(pair<string,string>("Content-Type", p.contentMetaInfo_->getContentType()));
                 rows.push_back(pair<string,string>("Timestamp", to_string(p.contentMetaInfo_->getTimestamp())));
                 rows.push_back(pair<string,string>("Other", p.contentMetaInfo_->getOther().toRawStr()));
             }
+            if (p.fetchedNum_ > 0)
+            {
+                rows.push_back(pair<string,string>("GObjStream SeqNo", to_string(p.seqNo_)));
+                rows.push_back(pair<string,string>("GObjStream Fetched Total", to_string(p.fetchedNum_)));
+            }
+            
+            rows.push_back(pair<string,string>("Total Packets", to_string(allData.size())));
             int idx = 0;
             for (auto d: allData)
                 rows.push_back(pair<string,string>("Packet "+to_string(idx++), d->getName().toUri()));
@@ -565,8 +578,10 @@ NamespaceDAT::execute(DAT_Output* output,
                 {
                     copyDatInputData(output, inputs, reserved);
                     
-                    if (!produceOnRequest_ &&
-                        !(gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj))
+                    bool produceNow = !produceOnRequest_ &&
+                                      !(gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj) &&
+                                      (pimpl_->handlerType_ != HandlerType::GObjStream);
+                    if (produceNow)
                         // active producer
                         runPublish(output, inputs, reserved);
                 }
@@ -591,7 +606,7 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
 {
     if (pimpl_->getIsObjectReady())
     {
-        if (!outputString_.size())
+        if (!outputString_.size() || pimpl_->handlerType_ == HandlerType::GObjStream)
             if (!pimpl_->tryLockObjectReady([&](const Impl::ObjectReadyPayload &p)
                 {
                     shared_ptr<BlobObject> b = dynamic_pointer_cast<BlobObject>(p.object_);
@@ -622,7 +637,8 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
 void
 NamespaceDAT::storeOutput(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    bool storePayload = !isProducer(inputs) && payloadOutput_.size() && !payloadStored_;
+    bool storePayload = (!isProducer(inputs) && payloadOutput_.size()) && (!payloadStored_ ||
+                            pimpl_->handlerType_ == HandlerType::GObjStream);
     
     if (pimpl_->getIsObjectReady() &&
         storePayload)
@@ -953,8 +969,8 @@ NamespaceDAT::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
 {
     BaseDAT::getInfoDATSize(infoSize, reserved1);
     
-    payloadInfoRows_.clear();
     pimpl_->tryLockObjectReady([this](const Impl::ObjectReadyPayload &p){
+        payloadInfoRows_.clear();
         payloadInfoRows_ = Impl::datInfoFromObjectPayload(p);
     });
     
