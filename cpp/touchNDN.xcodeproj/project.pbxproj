@@ -32,6 +32,12 @@
 		AF8A4CCB22FE32C2008A48A5 /* payloadTOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF8A4CC822FE32C2008A48A5 /* payloadTOP.cpp */; };
 		AF8A4CCD22FE47E6008A48A5 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF8A4CCC22FE47E6008A48A5 /* OpenGL.framework */; };
 		AF8A4CD422FF8C76008A48A5 /* json11.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF8A4CD222FF8C75008A48A5 /* json11.cpp */; };
+		AF8A4CDB23090B27008A48A5 /* baseOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF5A951D22B4A1F400662FAD /* baseOP.cpp */; };
+		AF8A4CDD23090B27008A48A5 /* baseTOP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF8A4CA722FE3024008A48A5 /* baseTOP.cpp */; };
+		AF8A4CDF23090B27008A48A5 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF8A4CCC22FE47E6008A48A5 /* OpenGL.framework */; };
+		AF8A4CE023090B27008A48A5 /* libtouchndn-helper.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AFCD77FF22F15DF80000302C /* libtouchndn-helper.0.dylib */; };
+		AFA2118D23090C2100B9D051 /* ndnrtcOut.plugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = AF8A4CE723090B27008A48A5 /* ndnrtcOut.plugin */; };
+		AFA2118E23090C3300B9D051 /* ndnrtcOut.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AF8A4CD7230907B6008A48A5 /* ndnrtcOut.cpp */; };
 		AFB405F922C2B6D30036C08A /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AFB405F622C2B6D30036C08A /* LICENSE */; };
 		AFB405FA22C2B6D30036C08A /* apr_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = AFB405F722C2B6D30036C08A /* apr_base64.c */; };
 		AFCD77B422E78C410000302C /* key-chain-manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AFCD77B322E78C410000302C /* key-chain-manager.cpp */; };
@@ -135,6 +141,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF8A4CE223090B27008A48A5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$PROJECT_DIR/touchndn-plugins";
+			dstSubfolderSpec = 0;
+			files = (
+				AFA2118D23090C2100B9D051 /* ndnrtcOut.plugin in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AFCD77CC22E8DBFC0000302C /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -190,6 +206,10 @@
 		AF8A4CD122FF8C75008A48A5 /* json11.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = json11.hpp; sourceTree = "<group>"; };
 		AF8A4CD222FF8C75008A48A5 /* json11.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json11.cpp; sourceTree = "<group>"; };
 		AF8A4CD322FF8C75008A48A5 /* LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
+		AF8A4CD7230907B6008A48A5 /* ndnrtcOut.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = ndnrtcOut.cpp; path = src/ndnrtcTOP/ndnrtcOut.cpp; sourceTree = "<group>"; };
+		AF8A4CD8230907B6008A48A5 /* ndnrtcOut.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = ndnrtcOut.hpp; path = src/ndnrtcTOP/ndnrtcOut.hpp; sourceTree = "<group>"; };
+		AF8A4CE723090B27008A48A5 /* ndnrtcOut.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ndnrtcOut.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		AFA2118C23090B5D00B9D051 /* ndnrtcOut.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ndnrtcOut.plist; sourceTree = "<group>"; };
 		AFB405F622C2B6D30036C08A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		AFB405F722C2B6D30036C08A /* apr_base64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = apr_base64.c; sourceTree = "<group>"; };
 		AFB405F822C2B6D30036C08A /* apr_base64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = apr_base64.h; sourceTree = "<group>"; };
@@ -221,6 +241,15 @@
 			files = (
 				AF8A4CCD22FE47E6008A48A5 /* OpenGL.framework in Frameworks */,
 				AF8A4CB522FE311E008A48A5 /* libtouchndn-helper.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF8A4CDE23090B27008A48A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF8A4CDF23090B27008A48A5 /* OpenGL.framework in Frameworks */,
+				AF8A4CE023090B27008A48A5 /* libtouchndn-helper.0.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -386,6 +415,23 @@
 			path = json11;
 			sourceTree = "<group>";
 		};
+		AF8A4CD52307AC45008A48A5 /* ndnrtcOut */ = {
+			isa = PBXGroup;
+			children = (
+				AF8A4CD7230907B6008A48A5 /* ndnrtcOut.cpp */,
+				AF8A4CD8230907B6008A48A5 /* ndnrtcOut.hpp */,
+				AFA2118C23090B5D00B9D051 /* ndnrtcOut.plist */,
+			);
+			name = ndnrtcOut;
+			sourceTree = "<group>";
+		};
+		AF8A4CD62307AC52008A48A5 /* ndnrtcIn */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = ndnrtcIn;
+			sourceTree = "<group>";
+		};
 		AFB405F422C2B6D30036C08A /* contrib */ = {
 			isa = PBXGroup;
 			children = (
@@ -423,6 +469,7 @@
 				AF70153B22C42EE8009D35F6 /* keyChainDAT.plugin */,
 				AFCD77D122E8DBFC0000302C /* namespaceDAT.plugin */,
 				AF8A4CC022FE311E008A48A5 /* payloadTOP.plugin */,
+				AF8A4CE723090B27008A48A5 /* ndnrtcOut.plugin */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -430,6 +477,8 @@
 		E227271121B6EE9A00905532 /* touchNDN */ = {
 			isa = PBXGroup;
 			children = (
+				AF8A4CD62307AC52008A48A5 /* ndnrtcIn */,
+				AF8A4CD52307AC45008A48A5 /* ndnrtcOut */,
 				AF8A4CC722FE328E008A48A5 /* payloadTOP */,
 				AF5A94E022B4439D00662FAD /* contentCacheDAT */,
 				AF5A94DF22B4439300662FAD /* namespaceDAT */,
@@ -480,6 +529,24 @@
 			name = payloadTOP;
 			productName = CPlusPlusDATExample;
 			productReference = AF8A4CC022FE311E008A48A5 /* payloadTOP.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+		AF8A4CD923090B27008A48A5 /* ndnrtcOut */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF8A4CE423090B27008A48A5 /* Build configuration list for PBXNativeTarget "ndnrtcOut" */;
+			buildPhases = (
+				AF8A4CDA23090B27008A48A5 /* Sources */,
+				AF8A4CDE23090B27008A48A5 /* Frameworks */,
+				AF8A4CE123090B27008A48A5 /* ShellScript */,
+				AF8A4CE223090B27008A48A5 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ndnrtcOut;
+			productName = CPlusPlusDATExample;
+			productReference = AF8A4CE723090B27008A48A5 /* ndnrtcOut.plugin */;
 			productType = "com.apple.product-type.bundle";
 		};
 		AFCD77B722E8DBFC0000302C /* namespaceDAT */ = {
@@ -553,6 +620,7 @@
 				AF70152A22C42EE8009D35F6 /* keyChainDAT */,
 				AFCD77B722E8DBFC0000302C /* namespaceDAT */,
 				AF8A4CA922FE311E008A48A5 /* payloadTOP */,
+				AF8A4CD923090B27008A48A5 /* ndnrtcOut */,
 			);
 		};
 /* End PBXProject section */
@@ -579,6 +647,23 @@
 
 /* Begin PBXShellScriptBuildPhase section */
 		AF8A4CBA22FE311E008A48A5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ `command -v dylibbundler` ]; then\npluginPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/MacOS/${PRODUCT_NAME}\"\ndepsPath=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.plugin/Contents/libs\"\nloaderPath=\"@loader_path/../libs\" \nprintf 'quit' | dylibbundler -od -b -x $pluginPath -d $depsPath -p $loaderPath -i /usr/local/lib || true\nelse\necho \"Can't create deployable plugins - dylibbundler needed!\"\necho \"dylibbundler was not found. Install it from https://github.com/auriamg/macdylibbundler\"\nfi\n";
+		};
+		AF8A4CE123090B27008A48A5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -670,6 +755,16 @@
 				AF8A4CB022FE311E008A48A5 /* baseOP.cpp in Sources */,
 				AF8A4CCB22FE32C2008A48A5 /* payloadTOP.cpp in Sources */,
 				AF8A4CC222FE313A008A48A5 /* baseTOP.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF8A4CDA23090B27008A48A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AFA2118E23090C3300B9D051 /* ndnrtcOut.cpp in Sources */,
+				AF8A4CDB23090B27008A48A5 /* baseOP.cpp in Sources */,
+				AF8A4CDD23090B27008A48A5 /* baseTOP.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -772,6 +867,32 @@
 				INFOPLIST_FILE = "$(SRCROOT)/src/payloadTOP/payloadTOP.plist";
 				INSTALL_PATH = /;
 				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.payloadTOP;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Release;
+		};
+		AF8A4CE523090B27008A48A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/ndnrtcOut.plist";
+				INSTALL_PATH = /;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.ndnrtcOutTOP;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Debug;
+		};
+		AF8A4CE623090B27008A48A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = "$(SRCROOT)/ndnrtcOut.plist";
+				INSTALL_PATH = /;
+				PRODUCT_BUNDLE_IDENTIFIER = edu.ucla.remap.touchNDN.ndnrtcOutTOP;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = plugin;
 			};
@@ -998,6 +1119,15 @@
 			buildConfigurations = (
 				AF8A4CBE22FE311E008A48A5 /* Debug */,
 				AF8A4CBF22FE311E008A48A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AF8A4CE423090B27008A48A5 /* Build configuration list for PBXNativeTarget "ndnrtcOut" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF8A4CE523090B27008A48A5 /* Debug */,
+				AF8A4CE623090B27008A48A5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
