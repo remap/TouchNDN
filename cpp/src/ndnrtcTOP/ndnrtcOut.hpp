@@ -25,6 +25,9 @@
 #include "baseTOP.hpp"
 
 namespace touch_ndn {
+    class FaceDAT;
+    class KeyChainDAT;
+    
     class NdnRtcOut : public BaseTOP {
     public:
         NdnRtcOut(const OP_NodeInfo* info);
@@ -42,11 +45,15 @@ namespace touch_ndn {
                                  const OP_Inputs* inputs,
                                  TOP_Context *context,
                                  void* reserved1) override;
-        virtual void paramsUpdated() override {}
+        virtual void paramsUpdated() override;
         
     private:
         bool useFec_, dropFrames_;
         int32_t targetBitrate_, segmentSize_, gopSize_;
+        std::string faceDat_, keyChainDat_;
+        
+        FaceDAT *getFaceDatOp() { return (FaceDAT*)getPairedOp(faceDat_); }
+        KeyChainDAT *getKeyChainDatOp() { return (KeyChainDAT*)getPairedOp(keyChainDat_); }
     };
 }
 

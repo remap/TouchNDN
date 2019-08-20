@@ -202,6 +202,18 @@ void
 NdnRtcOut::checkParams(TOP_OutputFormatSpecs *outputFormat, const OP_Inputs *inputs,
                        TOP_Context *context, void *reserved1)
 {
+    updateIfNew<string>
+    (PAR_FACEOP, faceDat_, getCanonical(inputs->getParString(PAR_FACEOP)),
+     [&](string &p){
+         return (p != faceDat_) || (getFaceDatOp() == nullptr && p.size());
+     });
+    
+    updateIfNew<string>
+    (PAR_KEYCHAINOP, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAINOP)),
+     [&](string &p){
+         return (p != keyChainDat_) || (getKeyChainDatOp() == nullptr && p.size());
+     });
+    
     updateIfNew<int>
     (PAR_BITRATE, targetBitrate_, inputs->getParInt(PAR_BITRATE));
     updateIfNew<bool>
@@ -214,3 +226,20 @@ NdnRtcOut::checkParams(TOP_OutputFormatSpecs *outputFormat, const OP_Inputs *inp
     (PAR_GOP_SIZE, gopSize_, inputs->getParInt(PAR_GOP_SIZE));
 }
 
+void
+NdnRtcOut::paramsUpdated()
+{
+    runIfUpdated(PAR_FACEOP, [this](){
+        dispatchOnExecute([this](TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs,
+                                 TOP_Context *context, void* reserved1){
+            pairOp(faceDat_, true);
+        });
+    });
+    
+    runIfUpdated(PAR_KEYCHAINOP, [this](){
+        dispatchOnExecute([this](TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs,
+                                 TOP_Context *context, void* reserved1){
+            pairOp(keyChainDat_, true);
+        });
+    });
+}
