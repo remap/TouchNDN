@@ -73,8 +73,6 @@ public:
 private:
     uint32_t freshness_;
     std::string prefix_, faceDat_, keyChainDat_, payloadInput_, payloadOutput_;
-    FaceDAT *faceDatOp_;
-    KeyChainDAT *keyChainDatOp_;
     bool rawOutput_, payloadStored_, mustBeFresh_, produceOnRequest_, gobjVersioned_;
     std::string outputString_;
     std::vector<std::pair<std::string, std::string>> payloadInfoRows_;
@@ -100,11 +98,10 @@ private:
   
     void initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void releaseNamespace(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
-    void pairFaceDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
-    void unpairFaceDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
-    void pairKeyChainDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
-    void unpairKeyChainDatOp(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     
+    FaceDAT *getFaceDatOp() { return (FaceDAT*)getPairedOp(faceDat_); }
+    KeyChainDAT *getKeyChainDatOp() { return (KeyChainDAT*)getPairedOp(keyChainDat_); }
+
     void runPublish(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void runFetch(DAT_Output*output, const OP_Inputs* inputs, void* reserved);
     void setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reserved);

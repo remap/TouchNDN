@@ -523,8 +523,6 @@ public:
 NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 : BaseDAT(info)
 , freshness_(16000)
-, faceDatOp_(nullptr)
-, keyChainDatOp_(nullptr)
 , rawOutput_(true)
 , payloadInput_("")
 , payloadOutput_("")
@@ -769,10 +767,10 @@ NamespaceDAT::isInputFile(const OP_Inputs *inputs) const
 void
 NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
 {
-    if (faceDatOp_ == op)
-        unpairFaceDatOp(nullptr, nullptr, nullptr);
-    if (keyChainDatOp_ == op)
-        unpairKeyChainDatOp(nullptr, nullptr, nullptr);
+    if (getFaceDatOp() == op)
+        unpairOp(faceDat_);
+    if (getKeyChainDatOp() == op)
+        unpairOp(keyChainDat_);
 }
 
 void
@@ -780,7 +778,7 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
 {
     releaseNamespace(output, inputs, reserved);
 
-    if (!faceDatOp_)
+    if (!getFaceDatOp())
     {
         setError("FaceDAT is not set");
         return;
@@ -791,15 +789,15 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
     
     if (isProducer)
     {
-        if (!keyChainDatOp_)
+        if (!getKeyChainDatOp())
         {
             setError("KeyChainDAT is not set");
             return;
         }
-        keyChain = keyChainDatOp_->getKeyChainManager()->instanceKeyChain().get();
+        keyChain = getKeyChainDatOp()->getKeyChainManager()->instanceKeyChain().get();
     }
         
-    if (faceDatOp_->getFaceProcessor())
+    if (getFaceDatOp()->getFaceProcessor())
     {
         if (!prefix_.size())
         {
@@ -811,7 +809,7 @@ NamespaceDAT::initNamespace(DAT_Output*output, const OP_Inputs* inputs, void* re
         payloadStored_ = false;
         HandlerType ht = pimpl_->handlerType_;
         pimpl_ = make_shared<Impl>(logger_, ht);
-        pimpl_->initNamespace(prefix_, keyChain, faceDatOp_->getFaceProcessor());
+        pimpl_->initNamespace(prefix_, keyChain, getFaceDatOp()->getFaceProcessor());
         
         if (isProducer)
         {
@@ -863,7 +861,7 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
         bool versioned = gobjVersioned_ && pimpl_->handlerType_ == HandlerType::GObj;
         // we need to synchronize with the Face thread, in case Face object will be accessed on
         // publishing (i.e. answering pending interests)
-        faceDatOp_->getFaceProcessor()->dispatchSynchronized([n,pimpl,pd,versioned](shared_ptr<Face> f){
+        getFaceDatOp()->getFaceProcessor()->dispatchSynchronized([n,pimpl,pd,versioned](shared_ptr<Face> f){
             pimpl->produceNow(*n, pd, versioned);
         });
     }
@@ -879,88 +877,6 @@ NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserv
     pimpl_->fetch(mustBeFresh_, gobjVersioned_);
     outputString_ = "";
     payloadStored_ = false;
-}
-
-void
-NamespaceDAT::pairFaceDatOp(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
-{
-    int err = 1;
-    void *faceDatOp;
-    
-    unpairFaceDatOp(output, inputs, reserved);
-    
-    if (faceDat_ == "")
-    {
-        err = 0;
-    }
-    else if ((faceDatOp = retrieveOp(faceDat_)))
-    {
-        faceDatOp_ = (FaceDAT*)faceDatOp;
-        err = (faceDatOp_ ? 0 : 1);
-        
-        if (faceDatOp_)
-        {
-            faceDatOp_->subscribe(this);
-            OPLOG_DEBUG("Paired FaceDAT {}", faceDatOp_->getFullPath());
-        }
-    }
-    
-    if (err)
-        setError("Failed to find TouchNDN operator %s", faceDat_.c_str());
-}
-
-void
-NamespaceDAT::unpairFaceDatOp(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
-{
-    if (faceDatOp_)
-    {
-        releaseNamespace(output, inputs, reserved);
-        faceDatOp_->unsubscribe(this);
-        faceDatOp_ = nullptr;
-        OPLOG_DEBUG("Unpaired FaceDAT");
-    }
-}
-
-void
-NamespaceDAT::pairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
-{
-    int err = 1;
-    void *keyChainDatOp;
-    
-    unpairKeyChainDatOp(output, inputs, reserved);
-    
-    if (keyChainDat_ == "")
-    {
-        err = 0;
-    }
-    else if ((keyChainDatOp = retrieveOp(keyChainDat_)))
-    {
-        keyChainDatOp_ = (KeyChainDAT*)keyChainDatOp;
-        err = (keyChainDatOp_ ? 0 : 1);
-        
-        if (keyChainDatOp_)
-        {
-            keyChainDatOp_->subscribe(this);
-            OPLOG_DEBUG("Paired KeyChainDAT {}", keyChainDatOp_->getFullPath());
-        }
-    }
-    
-    if (err)
-        setError("Failed to find TouchNDN operator %s", keyChainDat_.c_str());
-}
-
-void
-NamespaceDAT::unpairKeyChainDatOp(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
-{
-    if (keyChainDatOp_)
-    {
-        if (isProducer(inputs))
-            releaseNamespace(output, inputs, reserved);
-        
-        keyChainDatOp_->unsubscribe(this);
-        keyChainDatOp_ = nullptr;
-        OPLOG_DEBUG("Unpaired KeyChainDAT");
-    }
 }
 
 #define NDEFAULT_ROWS 3
@@ -1140,13 +1056,13 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     updateIfNew<string>
     (PAR_FACEDAT, faceDat_, getCanonical(inputs->getParString(PAR_FACEDAT)),
      [&](string& p){
-         return (p != faceDat_) || (faceDatOp_ == nullptr && p.size());
+         return (p != faceDat_) || (getFaceDatOp() == nullptr && p.size());
      });
     
     updateIfNew<string>
     (PAR_KEYCHAINDAT, keyChainDat_, getCanonical(inputs->getParString(PAR_KEYCHAINDAT)),
      [&](string& p){
-         return (p != keyChainDat_) || (keyChainDatOp_ == nullptr && p.size());
+         return (p != keyChainDat_) || (getKeyChainDatOp() == nullptr && p.size());
      });
     
     updateIfNew<uint32_t>
@@ -1184,11 +1100,19 @@ NamespaceDAT::paramsUpdated()
     });
     
     runIfUpdated(PAR_FACEDAT, [this](){
-        dispatchOnExecute(bind(&NamespaceDAT::pairFaceDatOp, this, _1, _2, _3));
+        dispatchOnExecute([this](DAT_Output*, const OP_Inputs* inputs, void* reserved){
+            pairOp(faceDat_, true);
+        });
     });
     
     runIfUpdated(PAR_KEYCHAINDAT, [this](){
-        dispatchOnExecute(bind(&NamespaceDAT::pairKeyChainDatOp, this, _1, _2, _3));
+        dispatchOnExecute([this](DAT_Output* outputs, const OP_Inputs* inputs, void* reserved){
+            unpairOp(keyChainDat_, [&](){
+                if (isProducer(inputs))
+                    releaseNamespace(outputs, inputs, reserved);
+            });
+            pairOp(keyChainDat_);
+        });
     });
     
     runIfUpdated(PAR_RAWOUTPUT, [this](){
@@ -1209,7 +1133,7 @@ NamespaceDAT::isProducer(const OP_Inputs* inputs)
     // namespace publishes object if
     // - keyChain is set AND
     // - there is an input OR payloadInput_ is not empty
-    return keyChainDatOp_ && inputs && (inputs->getNumInputs() || payloadInput_.size());
+    return getKeyChainDatOp() && inputs && (inputs->getNumInputs() || payloadInput_.size());
 }
 
 shared_ptr<ndn::Blob>

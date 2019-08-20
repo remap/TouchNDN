@@ -95,6 +95,7 @@ namespace touch_ndn {
         std::vector<OP_Common*> listeners_;
         std::string opName_, opPath_;
         std::string errorString_, warningString_, infoString_;
+        std::map<std::string, void*> pairedOps_;
         bool isReady_;
         
         // extracts operator path (without name) and operator name from full operator path
@@ -116,6 +117,11 @@ namespace touch_ndn {
         void setInfo(const char *format, ...);
         void setString(std::string &string, const char* format, va_list args);
         void setIsReady(bool isReady) { isReady_ = isReady; }
+        
+        bool pairOp(std::string opFullPath, bool unpair = false);
+        bool unpairOp(std::string opFullPath,
+                      std::function<void()> beforeUnpair = std::function<void()>());
+        void* getPairedOp(std::string opFullPath);
     };
     
     /**
@@ -126,7 +132,7 @@ namespace touch_ndn {
      * parameter.
      */
     template<class OP_Base, class... Arg>
-    class BaseOpImpl : public OP_Base, public OP_Common {
+    class BaseOpImpl : public OP_Common, public OP_Base {
     public:
         BaseOpImpl(const OP_NodeInfo* info)
         : nodeInfo_(info)

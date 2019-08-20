@@ -188,6 +188,55 @@ namespace touch_ndn
         vsprintf(&(s[0]), format, args);
         string = std::string(s);
     }
+
+    
+    bool
+    OP_Common::pairOp(string opFullPath, bool unpair)
+    {
+        int err = 1;
+        void *op;
+        
+        if (unpair)
+            unpairOp(opFullPath);
+        
+        if (opFullPath == "")
+            err = 0;
+        else if ((op = retrieveOp(opFullPath)))
+        {
+            ((OP_Common*)op)->subscribe(this);
+            pairedOps_[opFullPath] = op;
+            OPLOG_DEBUG("Paired operator {}", ((OP_Common*)op)->getFullPath().c_str());
+            return true;
+        }
+        
+        if (err)
+            setError("Failed to find TouchNDN operator %s", opFullPath.c_str());
+        
+        return false;
+    }
+    
+    bool
+    OP_Common::unpairOp(string opFullPath, function<void(void)> beforeUnpair)
+    {
+        map<string, void*>::iterator it = pairedOps_.find(opFullPath);
+        if (it != pairedOps_.end())
+        {
+            beforeUnpair();
+            ((OP_Common*)it->second)->unsubscribe(this);
+            pairedOps_.erase(it);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    void*
+    OP_Common::getPairedOp(std::string opFullPath)
+    {
+        if (pairedOps_.find(opFullPath) != pairedOps_.end())
+            return pairedOps_[opFullPath];
+        return nullptr;
+    }
     
 }
 
