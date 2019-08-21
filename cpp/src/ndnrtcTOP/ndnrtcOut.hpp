@@ -24,6 +24,10 @@
 #include <stdio.h>
 #include "baseTOP.hpp"
 
+namespace ndnrtc {
+    class VideoStream;
+}
+
 namespace touch_ndn {
     class FaceDAT;
     class KeyChainDAT;
@@ -51,9 +55,12 @@ namespace touch_ndn {
         bool useFec_, dropFrames_;
         int32_t targetBitrate_, segmentSize_, gopSize_;
         std::string faceDat_, keyChainDat_;
+        std::shared_ptr<ndnrtc::VideoStream> stream_;
         
         FaceDAT *getFaceDatOp() { return (FaceDAT*)getPairedOp(faceDat_); }
         KeyChainDAT *getKeyChainDatOp() { return (KeyChainDAT*)getPairedOp(keyChainDat_); }
+        
+        void initStream();
     };
 }
 

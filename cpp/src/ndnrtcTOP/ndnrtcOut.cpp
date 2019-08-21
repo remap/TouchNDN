@@ -21,6 +21,7 @@
 #include "ndnrtcOut.hpp"
 
 #include <OpenGL/gl3.h>
+#include <ndnrtc/stream.hpp>
 
 #define MODULE_LOGGER "ndnrtcTOP"
 
@@ -56,6 +57,7 @@ default:                                                                        
 
 using namespace std;
 using namespace touch_ndn;
+using namespace ndnrtc;
 
 namespace touch_ndn {
     shared_ptr<helpers::logger> getModuleLogger()
@@ -242,4 +244,12 @@ NdnRtcOut::paramsUpdated()
             pairOp(keyChainDat_, true);
         });
     });
+}
+
+void
+NdnRtcOut::initStream()
+{
+    VideoStream::Settings streamSettings;
+//    stream_ = make_shared<VideoStream>("", "", streamSettings, shared_ptr<KeyChain>);
+    
 }

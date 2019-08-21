@@ -72,6 +72,7 @@ public:
 
 private:
     uint32_t freshness_;
+    uint64_t namespaceCleanupTs_;
     std::string prefix_, faceDat_, keyChainDat_, payloadInput_, payloadOutput_;
     bool rawOutput_, payloadStored_, mustBeFresh_, produceOnRequest_, gobjVersioned_;
     std::string outputString_;
