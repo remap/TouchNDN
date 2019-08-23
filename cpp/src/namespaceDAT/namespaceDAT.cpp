@@ -254,6 +254,7 @@ public:
     ObjectReadyPayload objectReadyPayload_;
     Name lastVersion_;
     shared_ptr<GeneralizedObjectStreamHandler> streamHandler_;
+    helpers::FaceResetConnection faceResetConnection_;
     
     Impl(shared_ptr<helpers::logger> &l, HandlerType ht) :
     handlerType_(ht)
@@ -261,6 +262,7 @@ public:
     , logger_(l) {}
     
     ~Impl(){
+        if (faceProcessor_) faceResetConnection_.disconnect();
     }
     
     bool getIsObjectReady() const
@@ -296,7 +298,16 @@ public:
     
     void initNamespace(string prefix, KeyChain *keyChain, shared_ptr<helpers::FaceProcessor> faceProcessor)
     {
+        if (faceProcessor_) faceResetConnection_.disconnect();
         faceProcessor_ = faceProcessor;
+        
+        shared_ptr<Impl> me = shared_from_this();
+        faceResetConnection_ = faceProcessor_->onFaceReset_.connect([me, this](const shared_ptr<Face>&, const exception&){
+            namespace_->shutdown();
+            namespace_->setFace(nullptr);
+            namespace_.reset();
+        });
+
         objectReadyPayload_.reset();
         
         namespace_ = make_shared<Namespace>(prefix, keyChain);
@@ -802,9 +813,16 @@ void
 NamespaceDAT::onOpUpdate(OP_Common *op, const std::string &event)
 {
     if (getFaceDatOp() == op)
+    {
+        releaseNamespace(nullptr, nullptr, nullptr);
         unpairOp(faceDat_);
+    }
+    
     if (getKeyChainDatOp() == op)
+    {
+        releaseNamespace(nullptr, nullptr, nullptr);
         unpairOp(keyChainDat_);
+    }
 }
 
 void

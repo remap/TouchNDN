@@ -9,10 +9,11 @@
 #ifndef face_processor_hpp
 #define face_processor_hpp
 
+#define BOOST_BIND_NO_PLACEHOLDERS
+
 #include <stdio.h>
-#include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
 #include <boost/asio.hpp>
+#include <boost/signals2/signal.hpp>
 
 namespace ndn {
     class Face;
@@ -23,6 +24,12 @@ namespace ndn {
 
 namespace touch_ndn {
     namespace helpers {
+        
+        typedef std::function<void(const std::shared_ptr<ndn::Face>&,
+            const std::exception&)> OnFaceReset;
+        typedef boost::signals2::signal<void(const std::shared_ptr<ndn::Face>&,
+            const std::exception&)> FaceResetEvent;
+        typedef boost::signals2::connection FaceResetConnection;
         
         typedef std::function<void
         (const std::shared_ptr<const ndn::Name>& prefix,
@@ -96,6 +103,7 @@ namespace touch_ndn {
             // Checks if NFD is running (tries to register prefix, blocking).
             static bool checkNfdConnection(std::string host = "localhost");
             
+            FaceResetEvent onFaceReset_;
         private:
             std::shared_ptr<FaceProcessorImpl> pimpl_;
         };

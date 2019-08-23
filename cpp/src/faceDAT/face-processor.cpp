@@ -26,7 +26,7 @@
 #include <ndn-cpp/security/pib/pib-memory.hpp>
 #include <ndn-cpp/security/tpm/tpm-back-end-memory.hpp>
 
-//#define USE_THREADSAFE_FACE
+#define USE_THREADSAFE_FACE
 
 using namespace ndn;
 using namespace std;
@@ -37,7 +37,7 @@ namespace touch_ndn {
     namespace helpers {
         class FaceProcessorImpl : public enable_shared_from_this<FaceProcessorImpl>{
         public:
-            FaceProcessorImpl(std::string host);
+            FaceProcessorImpl(string host, OnFaceReset onFaceReset);
             ~FaceProcessorImpl();
 
             void start();
@@ -58,7 +58,8 @@ namespace touch_ndn {
             
         private:
             uint64_t processEventsTimestamp_;
-            std::string host_;
+            string host_;
+            OnFaceReset onFaceReset_;
             shared_ptr<Face> face_;
             thread t_;
             bool isRunningFace_;
@@ -119,13 +120,16 @@ bool FaceProcessor::checkNfdConnection(string host)
     return (registeredPrefixId != 0);
 }
 
-FaceProcessor::FaceProcessor(std::string host):
-pimpl_(make_shared<FaceProcessorImpl>(host))
+FaceProcessor::FaceProcessor(string host)
 {
+    pimpl_ = make_shared<FaceProcessorImpl>(host,
+                                            [this](const shared_ptr<Face>&f, const exception& e){
+                                                onFaceReset_(f, e);
+                                            });
     if (pimpl_->initFace())
         pimpl_->runFace();
     else
-        throw std::runtime_error("couldn't initialize face object");
+        throw runtime_error("couldn't initialize face object");
 }
 
 FaceProcessor::~FaceProcessor() {
@@ -177,10 +181,11 @@ void FaceProcessor::registerPrefixBlocking(const ndn::Name& prefix,
 }
 
 //******************************************************************************
-FaceProcessorImpl::FaceProcessorImpl(std::string host)
+FaceProcessorImpl::FaceProcessorImpl(string host, OnFaceReset onFaceReset)
 : host_(host)
 , isRunningFace_(false)
 , processEventsTimestamp_(0)
+, onFaceReset_(onFaceReset)
 {
 }
 
@@ -208,12 +213,12 @@ void FaceProcessorImpl::stop()
         io_.stop();
         t_.join();
 #else
-//        std::cout << "t join" << std::endl;
+//        cout << "t join" << endl;
         t_.join();
         io_.stop();
         face_->shutdown();
 #endif
-//        std::cout << "stopped" << std::endl;
+//        cout << "stopped" << endl;
     }
 }
 
@@ -274,7 +279,7 @@ bool FaceProcessorImpl::initFace()
             face_ = make_shared<Face>(host_.c_str());
 #endif
     }
-    catch(std::exception &e)
+    catch(exception &e)
     {
         // notify about error
         return false;
@@ -308,10 +313,17 @@ void FaceProcessorImpl::runFace()
                 usleep(5000);
 #endif
             }
-            catch (std::exception &e) {
+            catch (exception &e) {
+                self->io_.reset();
+                // save face till we call observers
+                shared_ptr<Face> face = self->face_;
                 // notify about error and try to recover
                 if (!self->initFace())
+                    // if can't recover -- set the flag
                     self->isRunningFace_ = false;
+                // call observers
+                if (self->onFaceReset_)
+                    self->onFaceReset_(face, e);
             }
         }
     });
