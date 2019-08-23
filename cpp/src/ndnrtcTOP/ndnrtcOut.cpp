@@ -22,6 +22,15 @@
 
 #include <OpenGL/gl3.h>
 #include <ndnrtc/stream.hpp>
+#include <ndnrtc/name-components.hpp>
+#include <ndn-cpp/threadsafe-face.hpp>
+#include <ndn-cpp/security/key-chain.hpp>
+#include <ndn-cpp/util/memory-content-cache.hpp>
+
+#include "faceDAT.h"
+#include "keyChainDAT.h"
+#include "face-processor.hpp"
+#include "key-chain-manager.hpp"
 
 #define MODULE_LOGGER "ndnrtcTOP"
 
@@ -40,6 +49,8 @@ default:                                                                        
 }\
 }
 
+#define BASE_PREFIX "/touchdesigner"
+
 #define PAR_FACEOP "Faceop"
 #define PAR_FACEOP_LABEL "Face"
 #define PAR_KEYCHAINOP "Keychain"
@@ -56,8 +67,12 @@ default:                                                                        
 #define PAR_GOP_SIZE_LABEL "GOP Size"
 
 using namespace std;
+using namespace std::placeholders;
 using namespace touch_ndn;
+using namespace ndn;
 using namespace ndnrtc;
+
+static string BasePrefix = getenv("TOUCHNDN_BASE_PREFIX") ? getenv("TOUCHNDN_BASE_PREFIX") : BASE_PREFIX ;
 
 namespace touch_ndn {
     shared_ptr<helpers::logger> getModuleLogger()
@@ -106,6 +121,98 @@ extern "C"
     }
 };
 
+class NdnRtcOut::Impl : public enable_shared_from_this<NdnRtcOut::Impl>
+{
+public:
+    Impl(shared_ptr<spdlog::logger> l)
+    : logger_(l)
+    , prefixRegistered_(false)
+    {}
+    
+    ~Impl(){
+        releaseStream();
+        cleanupFaceProcessor();
+    }
+    
+    string getErrorString() const { return errorString_; }
+    
+    void initStream(const string& base, const string &name,
+                    const VideoStream::Settings& settings,
+                    const int32_t& cacheLen,
+                    shared_ptr<helpers::FaceProcessor> faceProcessor,
+                    shared_ptr<KeyChain> keyChain)
+    {
+        errorString_ = "";
+        setFaceProcessor(faceProcessor);
+        
+        shared_ptr<Impl> me = shared_from_this();
+        faceProcessor_->dispatchSynchronized([this, me, base, name, settings, cacheLen, keyChain](shared_ptr<Face> f)
+        {
+            VideoStream::Settings s(settings);
+            s.memCache_ = make_shared<MemoryContentCache>(f.get());
+            s.memCache_->setMinimumCacheLifetime(cacheLen);
+            stream_ = make_shared<VideoStream>(base, name, s, keyChain);
+            logger_->info("Initialized NDN-RTC stream {}", stream_->getPrefix());
+            
+            // register prefix for the stream and RVP
+            prefixRegistered_ = false;
+            NamespaceInfo ni;
+            NameComponents::extractInfo(stream_->getPrefix(), ni);
+            s.memCache_->registerPrefix(ni.getPrefix(NameFilter::Library),
+                                        [me](const shared_ptr<const Name>& n)
+                                        {
+                                            me->errorString_ = "Failed to register prefix "+n->toUri();
+                                        },
+                                        [me](const shared_ptr<const Name>& n, uint64_t)
+                                        {
+                                            me->prefixRegistered_ = true;
+                                            me->logger_->info("Registered prefix {}", n->toUri());
+                                        });
+        });
+    }
+    
+    void releaseStream(){
+        shared_ptr<spdlog::logger> l = logger_;
+        shared_ptr<VideoStream> stream = stream_;
+        if (faceProcessor_ && stream)
+            faceProcessor_->dispatchSynchronized([stream, l](shared_ptr<Face>)
+        {
+            // do nothing -- just making sure that stream destructor will be called on face thread
+            l->info("Released NDN-RTC stream {}", stream->getPrefix());
+        });
+        stream.reset();
+        cleanupFaceProcessor();
+    }
+
+    
+private:
+    shared_ptr<spdlog::logger> logger_;
+    string errorString_;
+    shared_ptr<helpers::FaceProcessor> faceProcessor_;
+    helpers::FaceResetConnection faceResetConnection_;
+    shared_ptr<VideoStream> stream_;
+    bool prefixRegistered_;
+    
+    
+    void setFaceProcessor(shared_ptr<helpers::FaceProcessor> fp)
+    {
+        if (faceProcessor_) faceResetConnection_.disconnect();
+        
+        faceProcessor_ = fp;
+        shared_ptr<Impl> me = shared_from_this();
+        faceProcessor_->onFaceReset_.connect([me, fp](const shared_ptr<Face>, const exception&){
+            me->stream_.reset();
+            me->faceResetConnection_.disconnect();
+        });
+    }
+    
+    void cleanupFaceProcessor()
+    {
+        if (faceProcessor_) faceResetConnection_.disconnect();
+        faceProcessor_.reset();
+    }
+};
+
 NdnRtcOut::NdnRtcOut(const OP_NodeInfo* info)
 : BaseTOP(info)
 , useFec_(true)
@@ -113,6 +220,7 @@ NdnRtcOut::NdnRtcOut(const OP_NodeInfo* info)
 , targetBitrate_(3000)
 , segmentSize_(7600)
 , gopSize_(30)
+, isCacheEnabled_(true)
 {
     OPLOG_DEBUG("Create NdnRtcOutTOP");
 }
@@ -142,6 +250,14 @@ NdnRtcOut::execute(TOP_OutputFormatSpecs* outputFormat,
                     void* reserved1)
 {
     BaseTOP::execute(outputFormat, inputs, context, reserved1);
+    
+    if (!pimpl_) initStream();
+    else
+    {
+        setError(pimpl_->getErrorString().c_str());
+        
+        //...
+    }
 }
 
 void
@@ -234,6 +350,7 @@ NdnRtcOut::paramsUpdated()
     runIfUpdated(PAR_FACEOP, [this](){
         dispatchOnExecute([this](TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs,
                                  TOP_Context *context, void* reserved1){
+            if (getFaceDatOp()) releaseStream();
             pairOp(faceDat_, true);
         });
     });
@@ -241,15 +358,56 @@ NdnRtcOut::paramsUpdated()
     runIfUpdated(PAR_KEYCHAINOP, [this](){
         dispatchOnExecute([this](TOP_OutputFormatSpecs* outputFormat, const OP_Inputs* inputs,
                                  TOP_Context *context, void* reserved1){
+            if (getKeyChainDatOp()) releaseStream();
             pairOp(keyChainDat_, true);
         });
+    });
+    
+    runIfUpdatedAny({PAR_USEFEC, PAR_BITRATE, PAR_SEGSIZE, PAR_DROPFRAMES}, [this](){
+        releaseStream();
     });
 }
 
 void
 NdnRtcOut::initStream()
 {
-    VideoStream::Settings streamSettings;
-//    stream_ = make_shared<VideoStream>("", "", streamSettings, shared_ptr<KeyChain>);
-    
+    if (getFaceDatOp() && getKeyChainDatOp())
+    {
+        VideoStream::Settings streamSettings = VideoStream::defaultSettings();
+        streamSettings.codecSettings_.spec_.encoder_.bitrate_ = targetBitrate_;
+        streamSettings.codecSettings_.spec_.encoder_.gop_ = gopSize_;
+        streamSettings.codecSettings_.spec_.encoder_.dropFrames_ = dropFrames_;
+        streamSettings.useFec_ = useFec_;
+        streamSettings.storeInMemCache_ = isCacheEnabled_;
+        
+        clearError();
+        pimpl_ = make_shared<Impl>(logger_);
+        pimpl_->initStream(BasePrefix, opName_, streamSettings,
+                           (isCacheEnabled_ ? cacheLength_ : 0),
+                           getFaceDatOp()->getFaceProcessor(),
+                           getKeyChainDatOp()->getKeyChainManager()->instanceKeyChain());
+    }
+    else
+        setError("Face of KeyChain is not specified");
+}
+
+void
+NdnRtcOut::releaseStream()
+{
+    pimpl_->releaseStream();
+    pimpl_.reset();
+}
+
+void
+NdnRtcOut::onOpUpdate(OP_Common *op, const std::string &event)
+{
+    releaseStream();
+}
+
+void
+NdnRtcOut::opPathUpdated(const std::string &oldFullPath,
+                        const std::string &oldOpPath,
+                         const std::string &oldOpName)
+{
+    releaseStream();
 }

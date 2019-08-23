@@ -52,15 +52,23 @@ namespace touch_ndn {
         virtual void paramsUpdated() override;
         
     private:
-        bool useFec_, dropFrames_;
-        int32_t targetBitrate_, segmentSize_, gopSize_;
+        class Impl;
+        std::shared_ptr<Impl> pimpl_;
+        
+        bool useFec_, dropFrames_, isCacheEnabled_;
+        int32_t targetBitrate_, segmentSize_, gopSize_, cacheLength_;
         std::string faceDat_, keyChainDat_;
-        std::shared_ptr<ndnrtc::VideoStream> stream_;
         
         FaceDAT *getFaceDatOp() { return (FaceDAT*)getPairedOp(faceDat_); }
         KeyChainDAT *getKeyChainDatOp() { return (KeyChainDAT*)getPairedOp(keyChainDat_); }
         
         void initStream();
+        void releaseStream();
+        
+        void onOpUpdate(OP_Common*, const std::string& event) override;
+        void opPathUpdated(const std::string& oldFullPath,
+                           const std::string& oldOpPath,
+                           const std::string& oldOpName) override;
     };
 }
 
