@@ -310,6 +310,34 @@ namespace touch_ndn {
             return false;
         }
         
+        inline bool runIfUpdatedAny(std::set<std::string> paramNames, std::function<void()> func)
+        {
+            std::vector<std::string> x;
+            std::set_intersection(updatedParams_.begin(), updatedParams_.end(),
+                                  paramNames.begin(), paramNames.end(),
+                                  std::back_inserter(x));
+            if (x.size())
+            {
+                func();
+                return true;
+            }
+            return false;
+        }
+
+        inline bool runIfUpdatedAll(std::set<std::string> paramNames, std::function<void()> func)
+        {
+            std::vector<std::string> x;
+            std::set_intersection(updatedParams_.begin(), updatedParams_.end(),
+                                  paramNames.begin(), paramNames.end(),
+                                  std::back_inserter(x));
+            if (x.size() && x.size() == paramNames.size())
+            {
+                func();
+                return true;
+            }
+            return false;
+        }
+        
     private:
         
     };

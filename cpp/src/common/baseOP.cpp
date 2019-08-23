@@ -221,7 +221,7 @@ namespace touch_ndn
         map<string, void*>::iterator it = pairedOps_.find(opFullPath);
         if (it != pairedOps_.end())
         {
-            beforeUnpair();
+            if (beforeUnpair) beforeUnpair();
             ((OP_Common*)it->second)->unsubscribe(this);
             pairedOps_.erase(it);
             return true;
