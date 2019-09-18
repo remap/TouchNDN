@@ -63,6 +63,12 @@
 #define PAR_GOBJ_VERSIONED_LABEL "Versioned"
 #define PAR_GOBJ_STREAM_PULSE "Gobjstreampulse"
 #define PAR_GOBJ_STREAM_PULSE_LABEL "Stream Pulse"
+#define PAR_GOBJ_STREAM_SEQ_PULSE "Gobjstreamseqpulse"
+#define PAR_GOBJ_STREAM_SEQ_PULSE_LABEL "Set Seq #"
+#define PAR_GOBJ_STREAM_SEQ "Gobjstreamseq"
+#define PAR_GOBJ_STREAM_SEQ_LABEL "Seq #"
+#define PAR_GOBJ_STREAM_PP "Pipeline"
+#define PAR_GOBJ_STREAM_PP_LABEL "Pipeline Size"
 
 #define PAR_HANDLER_NONE "Handlernone"
 #define PAR_HANDLER_NONE_LABEL "None"
@@ -157,7 +163,12 @@ extern "C"
 
 class NamespaceDAT::Impl : public enable_shared_from_this<NamespaceDAT::Impl> {
 public:
+    // ObjectReadyPayload holds published/fetched object and relevant metadata
+    // On the Face thread, acquire lock to write
+    // On the main TD thread, try to acquire lock, skip if can't acquire lock
     typedef struct _ObjectReadyPayload {
+        // NamespaceData copies data from namespace that may be
+        // required later by TouchDesigner (state, namespace name, packets).
         typedef struct _NamespaceData {
             NamespaceState state_;
             string objectNamespaceName_;
@@ -182,6 +193,7 @@ public:
         shared_ptr<ContentMetaInfoObject> contentMetaInfo_;
         uint64_t updatedTs_, readTs_;
         // only for GObjStream
+        bool isGobjStream_;
         int64_t seqNo_, fetchedNum_;
         
         void reset(){
@@ -193,10 +205,40 @@ public:
             fetchedNum_ = 0;
             updatedTs_ = 0;
             readTs_ = 0;
+            isGobjStream_ = false;
         }
+        
+        void fromNamespace(Namespace &n, bool isGobjStream = false)
+        {
+            namespaceData_.fromNamespace(n);
+            object_ = n.getObject();
+            isGobjStream_ = isGobjStream;
+            
+            // check for gobj
+            if (n.hasChild(Name::Component("_meta")))
+            {
+                shared_ptr<Object> metaObject = n[Name::Component("_meta")].getObject();
+                shared_ptr<ContentMetaInfoObject> cMetaInfoObject = dynamic_pointer_cast<ContentMetaInfoObject>(metaObject);
+                if (cMetaInfoObject)
+                {
+                    contentMetaInfo_ = cMetaInfoObject;
+                }
+                else if (metaObject)
+                {
+                    ndntools::ContentMetaInfo cMetaInfo;
+                    cMetaInfo.wireDecode(n[Name::Component("_meta")].getBlobObject());
+                    contentMetaInfo_ = make_shared<ContentMetaInfoObject>(cMetaInfo);
+                }
+                
+                if (isGobjStream_)
+                    seqNo_ = n.getName()[-1].toSequenceNumber();
+            }
+        }
+        
         bool isObjectReady() const {
             return namespaceData_.objectNamespaceName_.size() &&
-                   namespaceData_.state_ == NamespaceState_OBJECT_READY &&
+                   (namespaceData_.state_ == NamespaceState_OBJECT_READY ||
+                    (isGobjStream_ && namespaceData_.state_ == NamespaceState_PRODUCING_OBJECT)) &&
                    object_;
         }
     } ObjectReadyPayload;
@@ -329,6 +371,7 @@ public:
                 n->setFace(nullptr);
             });
             
+            streamHandler_.reset();
             namespace_ = shared_ptr<Namespace>();
             lastVersion_.clear();
         }
@@ -391,20 +434,20 @@ public:
         objectReadyPayload_.reset();
         
         uint64_t versionNo = ndn_getNowMilliseconds();
-        Namespace &objectNamespace = versioned ? n[Name::Component::fromVersion(versionNo)] : n;
-        objectNamespace.setNewDataMetaInfo(payloadData->metaInfo_);
+        Namespace &publishNamespace = versioned ? n[Name::Component::fromVersion(versionNo)] : n;
+        publishNamespace.setNewDataMetaInfo(payloadData->metaInfo_);
         
         try {
             switch (handlerType_)
             {
                 case HandlerType::None:
                 {
-                    objectNamespace.serializeObject(make_shared<BlobObject>(*payloadData->payload_));
+                    publishNamespace.serializeObject(make_shared<BlobObject>(*payloadData->payload_));
                 }
                     break;
                 case HandlerType::Segmented:
                 {
-                    SegmentStreamHandler().setObject(objectNamespace, *payloadData->payload_);
+                    SegmentStreamHandler().setObject(publishNamespace, *payloadData->payload_);
                 }
                     break;
                 case HandlerType::GObj:
@@ -412,19 +455,16 @@ public:
                     shared_ptr<GObjPayloadData> pd = dynamic_pointer_cast<GObjPayloadData>(payloadData);
                     assert(pd);
                     if (pd->other_)
-                        GeneralizedObjectHandler().setObject(objectNamespace, *pd->payload_, pd->contentType_, *pd->other_);
+                        GeneralizedObjectHandler().setObject(publishNamespace, *pd->payload_, pd->contentType_, *pd->other_);
                     else
-                        GeneralizedObjectHandler().setObject(objectNamespace, *pd->payload_, pd->contentType_);
-                    
-                    ndntools::ContentMetaInfo cMetaInfo;
-                    cMetaInfo.wireDecode(*objectNamespace[Name::Component("_meta")].getBlobObject());
-                    objectReadyPayload_.contentMetaInfo_ = make_shared<ContentMetaInfoObject>(cMetaInfo);
+                        GeneralizedObjectHandler().setObject(publishNamespace, *pd->payload_, pd->contentType_);
                 }
                     break;
                 case HandlerType::GObjStream:
                 {
                     if (!streamHandler_)
                         streamHandler_ = make_shared<GeneralizedObjectStreamHandler>(namespace_.get());
+                    
                     shared_ptr<GObjPayloadData> pd = dynamic_pointer_cast<GObjPayloadData>(payloadData);
                     assert(pd);
                     if (pd->other_)
@@ -442,9 +482,16 @@ public:
                     break;
             }
             
-            objectReadyPayload_.namespaceData_.fromNamespace(objectNamespace);
-            objectReadyPayload_.object_ = objectNamespace.getObject();
-            logger_->debug("Published data under {}", objectNamespace.getName().toUri());
+            Namespace& objectNamespace =
+                (handlerType_ == HandlerType::GObjStream ?
+                 publishNamespace[Name::Component::fromSequenceNumber(streamHandler_->getProducedSequenceNumber())] :
+                 publishNamespace);
+            objectReadyPayload_.fromNamespace(objectNamespace,
+                                              handlerType_ == HandlerType::GObjStream);
+            
+            logger_->debug("Published data under {}: ",
+                           publishNamespace.getName().toUri(),
+                           objectNamespace.getName().toUri());
             
             // cleanup last version
             if (lastVersion_.size())
@@ -461,7 +508,7 @@ public:
         return false;
     }
     
-    void fetch(bool mustBeFresh, bool versioned = false)
+    void fetch(bool mustBeFresh, bool versioned = false, int pipelineSize = 8)
     {
         objectReadyPayload_.reset();
         
@@ -469,16 +516,32 @@ public:
         switch (handlerType_)
         {
             case HandlerType::None:
+            {
                 namespace_->objectNeeded(mustBeFresh);
+                shared_ptr<Namespace> nm = namespace_;
+                uint64_t cbId =
+                namespace_->addOnStateChanged([this,me](Namespace& n, Namespace& on, NamespaceState state, uint64_t cbId)
+                                              {
+                                                  cout << n.getName() << " " << on.getName() << " " << NamespaceStateMap.at(state) << endl;
+                                                  if (state == NamespaceState_OBJECT_READY)
+                                                  {
+                                                      me->lockObjectReady([&](ObjectReadyPayload& p){
+//                                                          cout << "INSIDE" << endl;
+                                                          p.updatedTs_ = ndn_getNowMilliseconds();
+                                                          p.fromNamespace(on);
+                                                      });
+                                                  }
+                                              });
+                registeredCallbacks_.push_back(cbId);
                 logger_->debug("Data packet requested: {}", namespace_->getName().toUri());
+            }
                 break;
             case HandlerType::Segmented:
                 SegmentedObjectHandler(namespace_.get(), [this,me](Namespace& objectNamespace)
                                        {
                                            me->lockObjectReady([&](ObjectReadyPayload& p){
                                                p.updatedTs_ = ndn_getNowMilliseconds();
-                                               p.namespaceData_.fromNamespace(objectNamespace);
-                                               p.object_ = objectNamespace.getObject();
+                                               p.fromNamespace(objectNamespace);
                                            });
                                        }).objectNeeded(mustBeFresh);
                 logger_->debug("Segmented data requested {}", namespace_->getName().toUri());
@@ -492,9 +555,7 @@ public:
                 {
                     me->lockObjectReady([&](ObjectReadyPayload& p){
                         p.updatedTs_ = ndn_getNowMilliseconds();
-                        p.namespaceData_.fromNamespace(objectNamespace);
-                        p.object_ = objectNamespace.getObject();
-                        p.contentMetaInfo_ = contentMetaInfo;
+                        p.fromNamespace(objectNamespace);
                     });
                 };
                 
@@ -507,7 +568,6 @@ public:
                 }
                 else
                 {
-                    int pipelineSize = 8;
                     GeneralizedObjectStreamHandler::OnSequencedGeneralizedObject onSeqObject =
                     [this,me,onObject] (int sequenceNumber,
                                         const shared_ptr<ContentMetaInfoObject>& contentMetaInfo,
@@ -516,6 +576,7 @@ public:
                         me->lockObjectReady([&](ObjectReadyPayload& p){
                             p.seqNo_ = sequenceNumber;
                             p.fetchedNum_++;
+                            p.isGobjStream_ = true;
                         });
                         onObject(contentMetaInfo, objectNamespace);
                         
@@ -575,7 +636,7 @@ NamespaceDAT::NamespaceDAT(const OP_NodeInfo* info)
 , gobjVersioned_(false)
 , datInputData_(make_shared<DatInputData>())
 , pimpl_(make_shared<Impl>(logger_, HandlerType::GObj))
-, namespaceCleanupTs_(ndn_getNowMilliseconds())
+, pipeline_(10)
 {
     datInputData_->handlerType_ = pimpl_->handlerType_;
     datInputData_->inputFile_ = "";
@@ -649,7 +710,7 @@ NamespaceDAT::setOutput(DAT_Output *output, const OP_Inputs* inputs, void* reser
 {
     if (pimpl_->getIsObjectReady())
     {
-        if (!outputString_.size() || pimpl_->handlerType_ == HandlerType::GObjStream)
+        if (!pimpl_->objectReadyPayload_.readTs_)//!outputString_.size() || pimpl_->handlerType_ == HandlerType::GObjStream)
             if (!pimpl_->tryLockObjectReady([&](Impl::ObjectReadyPayload &p)
                 {
                     shared_ptr<BlobObject> b = dynamic_pointer_cast<BlobObject>(p.object_);
@@ -924,7 +985,7 @@ NamespaceDAT::runPublish(DAT_Output *output, const OP_Inputs *inputs, void *rese
 void
 NamespaceDAT::runFetch(DAT_Output *output, const OP_Inputs *inputs, void *reserved)
 {
-    pimpl_->fetch(mustBeFresh_, gobjVersioned_);
+    pimpl_->fetch(mustBeFresh_, gobjVersioned_, pipeline_);
     outputString_ = "";
     payloadStored_ = false;
 }
@@ -1076,6 +1137,29 @@ NamespaceDAT::setupParameters(OP_ParameterManager* manager, void* reserved1)
          return manager->appendPulse(p);
      });
     
+    appendPar<OP_NumericParameter>
+    (manager, PAR_GOBJ_STREAM_PP, PAR_GOBJ_STREAM_PP_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         p.defaultValues[0] = pipeline_;
+         p.minValues[0] = 0;
+         p.maxValues[0] = 100;
+         p.minSliders[0] = p.minValues[0];
+         p.maxSliders[0] = p.maxValues[0];
+         return manager->appendInt(p);
+     });
+    
+    appendPar<OP_NumericParameter>
+    (manager, PAR_GOBJ_STREAM_SEQ, PAR_GOBJ_STREAM_SEQ_LABEL, PAR_PAGE_DEFAULT,
+     [&](OP_NumericParameter &p){
+         return manager->appendInt(p);
+     });
+    
+//    appendPar<OP_NumericParameter>
+//    (manager, PAR_GOBJ_STREAM_SEQ_PULSE, PAR_GOBJ_STREAM_SEQ_PULSE_LABEL, PAR_PAGE_DEFAULT,
+//     [&](OP_NumericParameter &p){
+//         return manager->appendToggle(p);
+//     });
+    
     appendPar<OP_StringParameter>
     (manager, PAR_INPUT, PAR_INPUT_LABEL, PAR_PAGE_DEFAULT,
      [&](OP_StringParameter &p){
@@ -1118,6 +1202,9 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     updateIfNew<uint32_t>
     (PAR_FRESHNESS, freshness_, inputs->getParInt(PAR_FRESHNESS));
     
+    updateIfNew<uint32_t>
+    (PAR_FRESHNESS, pipeline_, inputs->getParInt(PAR_GOBJ_STREAM_PP));
+    
     updateIfNew<HandlerType>
     (PAR_HANDLER_TYPE, pimpl_->handlerType_, HandlerTypeMap.at(inputs->getParString(PAR_HANDLER_TYPE)));
     
@@ -1137,6 +1224,8 @@ NamespaceDAT::checkParams(DAT_Output*, const OP_Inputs* inputs, void* reserved)
     inputs->enablePar(PAR_GOBJ_VERSIONED, pimpl_->handlerType_ == HandlerType::GObj);
     bool isProducing = isProducer(inputs);
     inputs->enablePar(PAR_GOBJ_STREAM_PULSE, pimpl_->handlerType_ == HandlerType::GObjStream && isProducing);
+    inputs->enablePar(PAR_GOBJ_STREAM_SEQ, pimpl_->handlerType_ == HandlerType::GObjStream && isProducing);
+//    inputs->enablePar(PAR_GOBJ_STREAM_PULSE, pimpl_->handlerType_ == HandlerType::GObjStream && isProducing);
     inputs->enablePar(PAR_FRESHNESS, isProducing);
     inputs->enablePar(PAR_OUTPUT, !isProducing);
 //    inputs->enablePar(PAR_INPUT, isProducing);
