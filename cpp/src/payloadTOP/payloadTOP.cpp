@@ -18,8 +18,12 @@
  * A copy of the GNU Lesser General Public License is in the file COPYING.
  */
 
+
 #include <iostream>
+
+#define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl3.h>
+#include <OpenGL/OpenGL.h>
 
 #include "payloadTOP.hpp"
 
@@ -146,20 +150,19 @@ PayloadTOP::execute(TOP_OutputFormatSpecs* outputFormat,
         {
             if (input->width != bufferWidth_ || input->height != bufferHeight_)
                 allocateBuffer(input->width, input->height);
-            
-            glBindTexture(GL_TEXTURE_2D, input->textureIndex);
-            GetError()
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_BGRA, GL_UNSIGNED_BYTE, buffer_->data());
-            GetError();
+
+            OP_TOPInputDownloadOptions options;
+            void *frameData = inputs->getTOPDataInCPUMemory(input, &options);
+            if (frameData)
+                memcpy(buffer_->data(), frameData, bufferSize_);
+
         }
     }
     
-    int textureMemoryLocation = 0;
-    uint8_t* mem = (uint8_t*)outputFormat->cpuPixelData[textureMemoryLocation];
-    
+    uint8_t* mem = (uint8_t*)outputFormat->cpuPixelData[0];
+
     if (mem && buffer_)
         memcpy(mem, buffer_->data(), bufferSize_);
-    
-    outputFormat->newCPUPixelDataLocation = textureMemoryLocation;
-    textureMemoryLocation = !textureMemoryLocation;
+
+    outputFormat->newCPUPixelDataLocation = 0;
 }
