@@ -136,10 +136,13 @@ public:
         cleanupFaceProcessor();
     }
     
+    bool getIsInitialized() const { return stream_.get() != nullptr; }
     string getErrorString() const { return errorString_; }
     string getStreamPrefix() const { return stream_ ? stream_->getPrefix() : "n/a"; }
-    uint32_t getFrameNumber() const { return 0; }
-    string getLastFramePrefix() const { return ""; }
+    uint32_t getFrameNumber() const { return stream_ ? lastFrame_.sampleNo_ : 0; }
+    string getLastFramePrefix() const { return stream_ ? lastFrame_.getPrefix(NameFilter::Sample).toUri() : "n/a"; }
+    statistics::StatisticsStorage getStats() const { return stream_->getStatistics(); }
+    const NamespaceInfo& getLastFrameInfo() const { return lastFrame_; }
     
     void initStream(const string& base, const string &name,
                     const VideoStream::Settings& settings,
@@ -209,6 +212,8 @@ public:
                 for (auto& d:packets)
                     memCache->add(*d);
             });
+            
+            if (packets.size()) NameComponents::extractInfo(packets[0]->getName(), lastFrame_);
         }
     }
     
@@ -221,6 +226,7 @@ private:
     shared_ptr<VideoStream> stream_;
     bool prefixRegistered_;
     int width_, height_;
+    ndnrtc::NamespaceInfo lastFrame_;
     vector<uint8_t> yuvData_;
     
     void setFaceProcessor(shared_ptr<helpers::FaceProcessor> fp)
@@ -502,12 +508,22 @@ const map<NdnRtcOut::InfoDatIndex, string> NdnRtcOut::RowNames = {
 int32_t
 NdnRtcOut::getNumInfoCHOPChans(void* reserved1)
 {
-    return BaseTOP::getNumInfoCHOPChans(reserved1) + (int32_t) ChanNames.size();
+    int nStats = 0;
+    if (pimpl_ && pimpl_->getIsInitialized())
+        nStats += pimpl_->getStats().getIndicators().size();
+    return BaseTOP::getNumInfoCHOPChans(reserved1) + (int32_t) ChanNames.size() + nStats;
 }
 
 void
 NdnRtcOut::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
 {
+    int nStats = 0;
+    if (pimpl_ && pimpl_->getIsInitialized())
+    {
+        statistics::StatisticsStorage ss = pimpl_->getStats();
+        nStats += ss.getIndicators().size();
+    }
+    
     NdnRtcOut::InfoChopIndex idx = (NdnRtcOut::InfoChopIndex)index;
     
     if (index < ChanNames.size())
@@ -531,7 +547,32 @@ NdnRtcOut::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1
         }
     }
     else
-        BaseTOP::getInfoCHOPChan(index - (int32_t)ChanNames.size(), chan, reserved1);
+    {
+        if (pimpl_ && pimpl_->getIsInitialized())
+        {
+            statistics::StatisticsStorage ss = pimpl_->getStats();
+            int nStats = (int)ss.getIndicators().size();
+            if (index - ChanNames.size() < nStats)
+            {
+                int statIdx = ((int)index - (int)ChanNames.size());
+                int idx = 0;
+                for (auto pair:ss.getIndicators())
+                {
+                    if (idx == statIdx)
+                    {
+                        chan->name->setString(statistics::StatisticsStorage::IndicatorKeywords.at(pair.first).c_str());
+                        chan->value = (float)pair.second;
+                        break;
+                    }
+                    idx++;
+                }
+            }
+            else
+                BaseTOP::getInfoCHOPChan(index - (int32_t)ChanNames.size() - nStats, chan, reserved1);
+        }
+        else
+            BaseTOP::getInfoCHOPChan(index - (int32_t)ChanNames.size(), chan, reserved1);
+    }
 }
 
 bool
