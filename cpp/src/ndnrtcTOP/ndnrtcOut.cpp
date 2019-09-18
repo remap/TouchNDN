@@ -20,14 +20,16 @@
 
 #include "ndnrtcOut.hpp"
 
+#define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl3.h>
 #include <ndnrtc/stream.hpp>
 #include <ndnrtc/name-components.hpp>
 #include <ndn-cpp/threadsafe-face.hpp>
 #include <ndn-cpp/security/key-chain.hpp>
 #include <ndn-cpp/util/memory-content-cache.hpp>
+#include <libyuv.h>
 
-#include "faceDAT.h"
+#include "faceDat.h"
 #include "keyChainDAT.h"
 #include "face-processor.hpp"
 #include "key-chain-manager.hpp"
@@ -135,6 +137,9 @@ public:
     }
     
     string getErrorString() const { return errorString_; }
+    string getStreamPrefix() const { return stream_ ? stream_->getPrefix() : "n/a"; }
+    uint32_t getFrameNumber() const { return 0; }
+    string getLastFramePrefix() const { return ""; }
     
     void initStream(const string& base, const string &name,
                     const VideoStream::Settings& settings,
@@ -162,12 +167,15 @@ public:
                                         [me](const shared_ptr<const Name>& n)
                                         {
                                             me->errorString_ = "Failed to register prefix "+n->toUri();
+                                            me->logger_->error("Failed to register prefix {}", n->toUri());
                                         },
                                         [me](const shared_ptr<const Name>& n, uint64_t)
                                         {
                                             me->prefixRegistered_ = true;
                                             me->logger_->info("Registered prefix {}", n->toUri());
                                         });
+            
+            settings_ = s;
         });
     }
     
@@ -184,15 +192,36 @@ public:
         cleanupFaceProcessor();
     }
 
+    void publishBgraFrame(const vector<uint8_t>& bgraData, int width, int height){
+        allocateYuvData(width, height);
+
+        // using ARGB because of endiannes?
+        int res = libyuv::ARGBToI420(bgraData.data(), width*sizeof(uint8_t)*4,
+                                     yBuffer(), width,
+                                     uBuffer(), width/2,
+                                     vBuffer(), width/2,
+                                     width, height);
+        if (res == 0 && stream_)
+        {
+            vector<shared_ptr<Data>> packets = stream_->processImage(ImageFormat::I420, yuvData_.data());
+            shared_ptr<MemoryContentCache> memCache = settings_.memCache_;
+            faceProcessor_->dispatchSynchronized([packets, memCache](shared_ptr<Face> f){
+                for (auto& d:packets)
+                    memCache->add(*d);
+            });
+        }
+    }
     
 private:
     shared_ptr<spdlog::logger> logger_;
     string errorString_;
     shared_ptr<helpers::FaceProcessor> faceProcessor_;
     helpers::FaceResetConnection faceResetConnection_;
+    VideoStream::Settings settings_;
     shared_ptr<VideoStream> stream_;
     bool prefixRegistered_;
-    
+    int width_, height_;
+    vector<uint8_t> yuvData_;
     
     void setFaceProcessor(shared_ptr<helpers::FaceProcessor> fp)
     {
@@ -200,7 +229,7 @@ private:
         
         faceProcessor_ = fp;
         shared_ptr<Impl> me = shared_from_this();
-        faceProcessor_->onFaceReset_.connect([me, fp](const shared_ptr<Face>, const exception&){
+        faceResetConnection_ = faceProcessor_->onFaceReset_.connect([me, fp](const shared_ptr<Face>, const exception&){
             me->stream_.reset();
             me->faceResetConnection_.disconnect();
         });
@@ -211,6 +240,20 @@ private:
         if (faceProcessor_) faceResetConnection_.disconnect();
         faceProcessor_.reset();
     }
+    
+    void allocateYuvData(int w, int h){
+        size_t len = 3*w*h/2;
+        width_ = w; height_ = h;
+        
+        if (yuvData_.capacity() < len)
+            yuvData_.reserve(len);
+        
+        yuvData_.resize(len);
+    }
+    
+    inline uint8_t* yBuffer() { return (uint8_t*)yuvData_.data(); }
+    inline uint8_t* uBuffer() { return yBuffer() + width_*height_; }
+    inline uint8_t* vBuffer() { return uBuffer() + width_/2 * ((height_+1) >> 1); }
 };
 
 NdnRtcOut::NdnRtcOut(const OP_NodeInfo* info)
@@ -221,6 +264,8 @@ NdnRtcOut::NdnRtcOut(const OP_NodeInfo* info)
 , segmentSize_(7600)
 , gopSize_(30)
 , isCacheEnabled_(true)
+, bufferWidth_(0)
+, bufferHeight_(0)
 {
     OPLOG_DEBUG("Create NdnRtcOutTOP");
 }
@@ -240,7 +285,7 @@ NdnRtcOut::getGeneralInfo(TOP_GeneralInfo *ginfo, const OP_Inputs *inputs, void 
 bool
 NdnRtcOut::getOutputFormat(TOP_OutputFormat *format, const OP_Inputs *inputs, void *reserved1)
 {
-    return true;
+    return false;
 }
 
 void
@@ -251,12 +296,38 @@ NdnRtcOut::execute(TOP_OutputFormatSpecs* outputFormat,
 {
     BaseTOP::execute(outputFormat, inputs, context, reserved1);
     
-    if (!pimpl_) initStream();
+    if (!pimpl_)
+        initStream();
     else
     {
         setError(pimpl_->getErrorString().c_str());
         
-        //...
+        if (inputs->getNumInputs())
+        {
+            const OP_TOPInput *input = inputs->getInputTOP(0);
+            if (input)
+            {
+                if (input->width > bufferWidth_ ||
+                    input->height > bufferHeight_)
+                    allocateBuffer(input->width, input->height);
+                
+//                cout << input->width << "x" << input->height << " "
+//                << input->depth << " " << input->pixelFormat << " "
+//                << input->textureIndex << endl;
+                
+//                glBindTexture(GL_TEXTURE_2D, input->textureIndex);
+//                GetError()
+//                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA/*input->pixelFormat*//*GL_BGRA*/, GL_UNSIGNED_BYTE, buffer_.data());
+//                GetError();
+                
+                OP_TOPInputDownloadOptions options;
+                void *frameData = inputs->getTOPDataInCPUMemory(input, &options);
+                if (frameData)
+                    memcpy(buffer_.data(), frameData, buffer_.size());
+
+                pimpl_->publishBgraFrame(buffer_, input->width, input->height);
+            }
+        }
     }
 }
 
@@ -373,22 +444,26 @@ NdnRtcOut::initStream()
 {
     if (getFaceDatOp() && getKeyChainDatOp())
     {
-        VideoStream::Settings streamSettings = VideoStream::defaultSettings();
-        streamSettings.codecSettings_.spec_.encoder_.bitrate_ = targetBitrate_;
-        streamSettings.codecSettings_.spec_.encoder_.gop_ = gopSize_;
-        streamSettings.codecSettings_.spec_.encoder_.dropFrames_ = dropFrames_;
-        streamSettings.useFec_ = useFec_;
-        streamSettings.storeInMemCache_ = isCacheEnabled_;
-        
-        clearError();
-        pimpl_ = make_shared<Impl>(logger_);
-        pimpl_->initStream(BasePrefix, opName_, streamSettings,
-                           (isCacheEnabled_ ? cacheLength_ : 0),
-                           getFaceDatOp()->getFaceProcessor(),
-                           getKeyChainDatOp()->getKeyChainManager()->instanceKeyChain());
+        if (getFaceDatOp()->getFaceProcessor() && getKeyChainDatOp()->getKeyChainManager())
+        {
+            VideoStream::Settings streamSettings = VideoStream::defaultSettings();
+            streamSettings.codecSettings_.spec_.encoder_.bitrate_ = targetBitrate_;
+            streamSettings.codecSettings_.spec_.encoder_.gop_ = gopSize_;
+            streamSettings.codecSettings_.spec_.encoder_.dropFrames_ = dropFrames_;
+            streamSettings.useFec_ = useFec_;
+            // we'll stuff packets into memcache ourselves
+            streamSettings.storeInMemCache_ = false;
+            
+            clearError();
+            pimpl_ = make_shared<Impl>(logger_);
+            pimpl_->initStream(BasePrefix, opName_, streamSettings,
+                               (isCacheEnabled_ ? cacheLength_ : 1000),
+                               getFaceDatOp()->getFaceProcessor(),
+                               getKeyChainDatOp()->getKeyChainManager()->instanceKeyChain());
+        }
     }
     else
-        setError("Face of KeyChain is not specified");
+        setError("Face DAT of KeyChain DAT is not specified");
 }
 
 void
@@ -410,4 +485,98 @@ NdnRtcOut::opPathUpdated(const std::string &oldFullPath,
                          const std::string &oldOpName)
 {
     releaseStream();
+}
+
+//******************************************************************************
+// InfoDAT and InfoCHOP
+const map<NdnRtcOut::InfoChopIndex, string> NdnRtcOut::ChanNames = {
+    { NdnRtcOut::InfoChopIndex::FrameNumber, "frameNumber" }
+};
+
+const map<NdnRtcOut::InfoDatIndex, string> NdnRtcOut::RowNames = {
+    { NdnRtcOut::InfoDatIndex::LibVersion, "Library Version" },
+    { NdnRtcOut::InfoDatIndex::StreamPrefix, "Stream Pefix" },
+    { NdnRtcOut::InfoDatIndex::FramePrefix, "Frame Pefix" }
+};
+
+int32_t
+NdnRtcOut::getNumInfoCHOPChans(void* reserved1)
+{
+    return BaseTOP::getNumInfoCHOPChans(reserved1) + (int32_t) ChanNames.size();
+}
+
+void
+NdnRtcOut::getInfoCHOPChan(int32_t index, OP_InfoCHOPChan* chan, void* reserved1)
+{
+    NdnRtcOut::InfoChopIndex idx = (NdnRtcOut::InfoChopIndex)index;
+    
+    if (index < ChanNames.size())
+    {
+        chan->name->setString(ChanNames.at(idx).c_str());
+        
+        switch (idx) {
+            case NdnRtcOut::InfoChopIndex::FrameNumber:
+            {
+                chan->value = pimpl_ ? pimpl_->getFrameNumber() : -1;
+            }
+                break;
+            default:
+            {
+                chan->value = 0;
+                stringstream ss;
+                ss << "n_a_" << index;
+                chan->name->setString(ss.str().c_str());
+            }
+                break;
+        }
+    }
+    else
+        BaseTOP::getInfoCHOPChan(index - (int32_t)ChanNames.size(), chan, reserved1);
+}
+
+bool
+NdnRtcOut::getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1)
+{
+    BaseTOP::getInfoDATSize(infoSize, reserved1);
+    
+    infoSize->rows += RowNames.size();
+    
+    infoSize->cols = 2;
+    infoSize->byColumn = false;
+    return true;
+}
+
+void
+NdnRtcOut::getInfoDATEntries(int32_t index, int32_t nEntries, OP_InfoDATEntries* entries,
+                           void* reserved1)
+{
+    size_t nRows = RowNames.size();
+    
+    if (index < nRows)
+    {
+        auto idx = (NdnRtcOut::InfoDatIndex)index;
+        entries->values[0]->setString(RowNames.at(idx).c_str());
+        switch (idx) {
+            case NdnRtcOut::InfoDatIndex::LibVersion:
+            {
+                entries->values[1]->setString("n/a");//ndnrtc_getVersion());
+            }
+                break;
+            case NdnRtcOut::InfoDatIndex::StreamPrefix:
+            {
+                entries->values[1]->setString(pimpl_ ? pimpl_->getStreamPrefix().c_str() : "n/a");
+            }
+                break;
+            case NdnRtcOut::InfoDatIndex::FramePrefix:
+            {
+                entries->values[1]->setString(pimpl_ ? pimpl_->getLastFramePrefix().c_str() : "n/a");
+            }
+                break;
+            default:
+                entries->values[1]->setString("unknown row index");
+                break;
+        }
+    }
+    else
+        BaseTOP::getInfoDATEntries((int32_t)(index - nRows), nEntries, entries, reserved1);
 }

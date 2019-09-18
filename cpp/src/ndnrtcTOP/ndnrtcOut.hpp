@@ -34,6 +34,17 @@ namespace touch_ndn {
     
     class NdnRtcOut : public BaseTOP {
     public:
+        enum class InfoChopIndex : int32_t {
+            FrameNumber
+        };
+        enum class InfoDatIndex : int32_t {
+            LibVersion,
+            StreamPrefix,
+            FramePrefix
+        };
+        static const std::map<InfoChopIndex, std::string> ChanNames;
+        static const std::map<InfoDatIndex, std::string> RowNames;
+        
         NdnRtcOut(const OP_NodeInfo* info);
         virtual ~NdnRtcOut();
         
@@ -51,9 +62,21 @@ namespace touch_ndn {
                                  void* reserved1) override;
         virtual void paramsUpdated() override;
         
+        virtual int32_t        getNumInfoCHOPChans(void* reserved1) override;
+        virtual void        getInfoCHOPChan(int index,
+                                            OP_InfoCHOPChan* chan,
+                                            void* reserved1) override;
+        
+        virtual bool        getInfoDATSize(OP_InfoDATSize* infoSize, void* reserved1) override;
+        virtual void        getInfoDATEntries(int32_t index,
+                                              int32_t nEntries,
+                                              OP_InfoDATEntries* entries,
+                                              void* reserved1) override;
     private:
         class Impl;
         std::shared_ptr<Impl> pimpl_;
+        int bufferWidth_, bufferHeight_;
+        std::vector<uint8_t> buffer_;
         
         bool useFec_, dropFrames_, isCacheEnabled_;
         int32_t targetBitrate_, segmentSize_, gopSize_, cacheLength_;
@@ -69,6 +92,13 @@ namespace touch_ndn {
         void opPathUpdated(const std::string& oldFullPath,
                            const std::string& oldOpPath,
                            const std::string& oldOpName) override;
+        
+        void allocateBuffer(int w, int h)
+        {
+            bufferWidth_ = w;
+            bufferHeight_ = h;
+            buffer_ = std::vector<uint8_t>(w*h*4*sizeof(uint8_t));
+        }
     };
 }
 
