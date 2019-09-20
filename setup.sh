@@ -93,4 +93,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+cd $INSTALL_DIR
+git clone https://github.com/remap/TouchNDN.git repo
 echo "done."
