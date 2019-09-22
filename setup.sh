@@ -35,8 +35,8 @@ echo "setting up NDN platform..."
 mkdir -p $INSTALL_DIR
 cd $INSTALL_DIR
 git clone https://github.com/named-data/ndn-cxx.git
-git checkout ndn-cxx-0.6.6
 cd ndn-cxx
+git checkout ndn-cxx-0.6.6
 ./waf configure
 ./waf
 sudo ./waf install
@@ -48,8 +48,8 @@ fi
 
 cd $INSTALL_DIR
 git clone --recursive https://github.com/named-data/NFD.git
-git checkout NFD-0.6.6
 cd NFD
+git checkout NFD-0.6.6
 ./waf configure
 ./waf
 sudo ./waf install
